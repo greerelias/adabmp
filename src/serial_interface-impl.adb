@@ -19,6 +19,7 @@ package body Serial_Interface.Impl is
       GSC.Close (Port.Port);
    end Close;
 
+   -- Write String
    overriding
    procedure Write (Port : in out Com_Port; Data : String) is
       Buffer : Stream_Element_Array (1 .. Data'Length);
@@ -30,6 +31,12 @@ package body Serial_Interface.Impl is
       GSC.Write (Port.Port, Buffer);
    end Write;
 
+   procedure Write (Port : in out Com_Port; Data : Stream_Element_Array) is
+   begin
+      GSC.Write (Port.Port, Data);
+   end Write;
+
+   -- Read String
    overriding
    procedure Read
      (Port : in out Com_Port; Buffer : out String; Last : out Natural)
@@ -43,6 +50,15 @@ package body Serial_Interface.Impl is
          Buffer (Buffer'First + I - 1) :=
            Character'Val (SEA_Buffer (Stream_Element_Offset (I)));
       end loop;
+   end Read;
+
+   overriding
+   procedure Read
+     (Port   : in out Com_Port;
+      Buffer : in out Stream_Element_Array;
+      Last   : out Stream_Element_Offset) is
+   begin
+      GSC.Read (Port.Port, Buffer, Last);
    end Read;
 
 end Serial_Interface.Impl;

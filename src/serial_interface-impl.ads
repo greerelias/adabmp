@@ -1,3 +1,4 @@
+with Ada.Streams;
 with GNAT.Serial_Communications;
 
 package Serial_Interface.Impl is
@@ -14,8 +15,17 @@ package Serial_Interface.Impl is
    procedure Write (Port : in out Com_Port; Data : String);
 
    overriding
+   procedure Write
+     (Port : in out Com_Port; Data : Ada.Streams.Stream_Element_Array);
+
+   overriding
    procedure Read
      (Port : in out Com_Port; Buffer : out String; Last : out Natural);
+
+   procedure Read
+     (Port   : in out Com_Port;
+      Buffer : in out Ada.Streams.Stream_Element_Array;
+      Last   : out Ada.Streams.Stream_Element_Offset);
 
 private
    type Com_Port is limited new Serial_Interface.Serial_Port with record
