@@ -1,0 +1,15 @@
+name = "adabmp"
+description = "Ada Baremetal Programmer"
+version = "0.1.0-dev"
+
+authors = ["Greer Elias"]
+maintainers = ["Greer Elias <example@example.com>"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+website = ""
+tags = []
+
+executables = ["adabmp"]
+
+
+[[depends-on]]
+aunit = "^25.0.0"
