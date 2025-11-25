@@ -12,14 +12,7 @@ package Serial_Interface.Impl is
    procedure Close (Port : in out Com_Port);
 
    overriding
-   procedure Write (Port : in out Com_Port; Data : String);
-
-   overriding
    procedure Write (Port : in out Com_Port; Data : Stream_Element_Array);
-
-   overriding
-   procedure Read
-     (Port : in out Com_Port; Buffer : out String; Last : out Natural);
 
    procedure Read
      (Port   : in out Com_Port;

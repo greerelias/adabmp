@@ -14,54 +14,52 @@ package body Serial_Interface.Stub is
       Port.Opened := False;
    end Close;
 
-   -- Write String
-   overriding
-   procedure Write (Port : in out Mock_Port; Data : String) is
-   begin
-      Port.Read_String := To_Unbounded_String (Data);
-   end Write;
-
    -- Write Stream
    overriding
    procedure Write (Port : in out Mock_Port; Data : Stream_Element_Array) is
    begin
-      Port.Read_Stream := Data;
+      if Port.Loopback_Enabled then
+         if Data'Length <= Port.Read_Stream'Length then
+            Port.Read_Stream (1 .. Data'Length) := Data;
+            Port.Read_Count := Data'Length;
+            Port.Read_Index := 1;
+         end if;
+      end if;
    end Write;
-
-   -- Read String
-   overriding
-   procedure Read
-     (Port : in out Mock_Port; Buffer : out String; Last : out Natural) is
-   begin
-      Buffer := To_String (Port.Read_String);
-      Last := Length (Port.Read_String);
-   end Read;
 
    -- Read Stream
    overriding
    procedure Read
      (Port   : in out Mock_Port;
       Buffer : in out Stream_Element_Array;
-      Last   : out Stream_Element_Offset) is
+      Last   : out Stream_Element_Offset)
+   is
+      Available : Stream_Element_Offset;
+      To_Read   : Stream_Element_Offset;
    begin
-      Buffer := Port.Read_Stream;
-      Last := Port.Read_Stream'Length;
-   end Read;
+      if Port.Read_Index > Port.Read_Count then
+         Last := Buffer'First - 1; -- No data
+         return;
+      end if;
 
-   procedure Set_Input (Port : in out Mock_Port; Data : String) is
-   begin
-      Port.Read_String := To_Unbounded_String (Data);
-   end Set_Input;
+      Available := Port.Read_Count - Port.Read_Index + 1;
+      To_Read := Stream_Element_Offset'Min (Available, Buffer'Length);
+
+      Buffer (Buffer'First .. Buffer'First + To_Read - 1) :=
+        Port.Read_Stream (Port.Read_Index .. Port.Read_Index + To_Read - 1);
+
+      Port.Read_Index := Port.Read_Index + To_Read;
+      Last := Buffer'First + To_Read - 1;
+   end Read;
 
    procedure Set_Input (Port : in out Mock_Port; Data : Stream_Element_Array)
    is
    begin
-      Port.Read_Stream := Data;
+      if Data'Length <= Port.Read_Stream'Length then
+         Port.Read_Stream (1 .. Data'Length) := Data;
+         Port.Read_Count := Data'Length;
+         Port.Read_Index := 1;
+      end if;
    end Set_Input;
-
-   function Get_Output (Port : Mock_Port) return String is
-   begin
-      return To_String (Port.Written_Data);
-   end Get_Output;
 
 end Serial_Interface.Stub;

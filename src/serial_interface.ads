@@ -8,13 +8,7 @@ package Serial_Interface is
 
    procedure Close (Port : in out Serial_Port) is abstract;
 
-   procedure Write (Port : in out Serial_Port; Data : String) is abstract;
-
    procedure Write (Port : in out Serial_Port; Data : Stream_Element_Array)
-   is abstract;
-
-   procedure Read
-     (Port : in out Serial_Port; Buffer : out String; Last : out Natural)
    is abstract;
 
    procedure Read
