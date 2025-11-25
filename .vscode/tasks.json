@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "ada",
+			"command": "alr",
+			"args": [
+				"build",
+			],
+			"problemMatcher": [
+				"$ada-error",
+				"$ada-warning",
+				"$ada-info"
+			],
+			"group": "build",
+			"label": "ada: Build current project"
+		}
+	]
+}

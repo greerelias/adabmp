@@ -3,10 +3,13 @@ with Ada.Strings.Unbounded;
 
 package Connection_Tester is
 
+   procedure Get_Programmer_Info
+     (Port    : in out Serial_Interface.Serial_Port'Class;
+      Success : out Boolean;
+      Info    : out Ada.Strings.Unbounded.Unbounded_String);
+
    procedure Run_Test
      (Port    : in out Serial_Interface.Serial_Port'Class;
-      Command : String;
-      Expect  : String;
       Success : out Boolean;
       Message : out Ada.Strings.Unbounded.Unbounded_String);
 

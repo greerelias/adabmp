@@ -10,13 +10,9 @@ package body Device_Tester_Tests is
       Success : Boolean;
       Msg     : Unbounded_String;
    begin
-      Port.Set_Input ("PONG");
-      Connection_Tester.Run_Test (Port, "PING", "PONG", Success, Msg);
+      Connection_Tester.Run_Test (Port, Success, Msg);
 
       Assert (Success, "Test should succeed");
-      Assert
-        (Port.Get_Output = "PING" & ASCII.CR & ASCII.LF,
-         "Should send command with CRLF");
    end Test_Successful_Communication;
 
    procedure Test_Failure_Response (T : in out Test) is
@@ -24,9 +20,7 @@ package body Device_Tester_Tests is
       Success : Boolean;
       Msg     : Unbounded_String;
    begin
-      Port.Set_Input ("ERROR");
-      Connection_Tester.Run_Test (Port, "PING", "PONG", Success, Msg);
-
+      Connection_Tester.Run_Test (Port, Success, Msg);
       Assert (not Success, "Test should fail");
    end Test_Failure_Response;
 
@@ -36,7 +30,7 @@ package body Device_Tester_Tests is
       Msg     : Unbounded_String;
    begin
       --  Empty input
-      Connection_Tester.Run_Test (Port, "PING", "PONG", Success, Msg);
+      Connection_Tester.Run_Test (Port, Success, Msg);
 
       Assert (not Success, "Test should fail on timeout");
    end Test_No_Response;

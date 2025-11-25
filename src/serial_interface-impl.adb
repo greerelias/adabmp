@@ -1,4 +1,3 @@
-with Ada.Streams; use Ada.Streams;
 with GNAT.Serial_Communications;
 
 package body Serial_Interface.Impl is
@@ -10,7 +9,7 @@ package body Serial_Interface.Impl is
       Name_Id : constant GSC.Port_Name := GSC.Port_Name (Name);
    begin
       GSC.Open (Port.Port, Name_Id);
-      GSC.Set (Port.Port, Rate => GSC.B115200);
+      GSC.Set (Port.Port, Rate => GSC.B115200, Timeout => 4.0);
    end Open;
 
    overriding
@@ -31,6 +30,7 @@ package body Serial_Interface.Impl is
       GSC.Write (Port.Port, Buffer);
    end Write;
 
+   overriding
    procedure Write (Port : in out Com_Port; Data : Stream_Element_Array) is
    begin
       GSC.Write (Port.Port, Data);

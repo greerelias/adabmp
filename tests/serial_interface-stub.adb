@@ -1,3 +1,5 @@
+with Ada.Streams; use Ada.Streams;
+
 package body Serial_Interface.Stub is
 
    overriding
@@ -12,36 +14,49 @@ package body Serial_Interface.Stub is
       Port.Opened := False;
    end Close;
 
+   -- Write String
    overriding
    procedure Write (Port : in out Mock_Port; Data : String) is
    begin
-      Append (Port.Written_Data, Data);
+      Port.Read_String := To_Unbounded_String (Data);
    end Write;
 
+   -- Write Stream
+   overriding
+   procedure Write (Port : in out Mock_Port; Data : Stream_Element_Array) is
+   begin
+      Port.Read_Stream := Data;
+   end Write;
+
+   -- Read String
    overriding
    procedure Read
-     (Port : in out Mock_Port; Buffer : out String; Last : out Natural)
-   is
-      Available : constant Natural :=
-        Length (Port.Read_Data) - Port.Read_Index + 1;
-      To_Read   : constant Natural := Natural'Min (Available, Buffer'Length);
+     (Port : in out Mock_Port; Buffer : out String; Last : out Natural) is
    begin
-      if To_Read = 0 then
-         Last := 0;
-         return;
-      end if;
+      Buffer := To_String (Port.Read_String);
+      Last := Length (Port.Read_String);
+   end Read;
 
-      Buffer (Buffer'First .. Buffer'First + To_Read - 1) :=
-        Slice (Port.Read_Data, Port.Read_Index, Port.Read_Index + To_Read - 1);
-
-      Port.Read_Index := Port.Read_Index + To_Read;
-      Last := To_Read;
+   -- Read Stream
+   overriding
+   procedure Read
+     (Port   : in out Mock_Port;
+      Buffer : in out Stream_Element_Array;
+      Last   : out Stream_Element_Offset) is
+   begin
+      Buffer := Port.Read_Stream;
+      Last := Port.Read_Stream'Length;
    end Read;
 
    procedure Set_Input (Port : in out Mock_Port; Data : String) is
    begin
-      Port.Read_Data := To_Unbounded_String (Data);
-      Port.Read_Index := 1;
+      Port.Read_String := To_Unbounded_String (Data);
+   end Set_Input;
+
+   procedure Set_Input (Port : in out Mock_Port; Data : Stream_Element_Array)
+   is
+   begin
+      Port.Read_Stream := Data;
    end Set_Input;
 
    function Get_Output (Port : Mock_Port) return String is

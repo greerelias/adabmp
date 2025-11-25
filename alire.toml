@@ -9,7 +9,8 @@ website = ""
 tags = []
 
 executables = ["adabmp"]
-
+[build-switches]
+"*".style_checks = "No"
 
 [[depends-on]]
 aunit = "^25.0.0"

@@ -59,7 +59,7 @@ procedure Adabmp is
 
       Put_Line ("Sending command: " & Test_Cmd);
 
-      Connection_Tester.Run_Test (Port, Test_Cmd, Test_Resp, Success, Msg);
+      Connection_Tester.Run_Test (Port, Success, Msg);
 
       Put_Line (To_String (Msg));
 

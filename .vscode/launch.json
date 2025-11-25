@@ -1,0 +1,59 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug adabmp (gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/adabmp",
+            "args": [
+                "--test-connection"
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "ada: Build current project",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "stopAtEntry": true,
+            "externalConsole": false,
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "Debug test_runner (gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/test_runner",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "ada: Build current project",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "stopAtEntry": true,
+            "externalConsole": false,
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Build and Debug adabmp",
+            "configurations": [
+                "Debug adabmp (gdb)"
+            ]
+        },
+        {
+            "name": "Build and Debug tests",
+            "configurations": [
+                "Debug test_runner (gdb)"
+            ]
+        }
+    ]
+}
