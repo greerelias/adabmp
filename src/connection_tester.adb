@@ -32,9 +32,6 @@ package body Connection_Tester is
       Protocol.Receive_Packet (Port, Rx_Buffer, Rx_Last);
 
       if Rx_Last >= Rx_Buffer'First then
-         --  Parse the response
-         --  Assuming response is also a packet?
-         --  If so, we validate and extract payload.
          declare
             Response : Stream_Element_Array renames
               Rx_Buffer (Rx_Buffer'First .. Rx_Last);
