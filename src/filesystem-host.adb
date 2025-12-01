@@ -4,7 +4,8 @@ with Ada.Containers.Vectors;
 
 package body Filesystem.Host is
 
-   function Read_File (Self : Host_Filesystem; Path : String) return String is
+   function Read_USB_File (Self : Host_Filesystem; Path : String) return String
+   is
       File : Ada.Text_IO.File_Type;
       Line : String (1 .. 100);
       Last : Natural;
@@ -19,7 +20,7 @@ package body Filesystem.Host is
             Ada.Text_IO.Close (File);
          end if;
          return "";
-   end Read_File;
+   end Read_USB_File;
 
    function Exists (Self : Host_Filesystem; Path : String) return Boolean is
    begin

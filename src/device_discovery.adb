@@ -24,9 +24,9 @@ package body Device_Discovery is
 
          declare
             V : constant String :=
-              Actual_FS.Read_File (Dev_Path & "/idVendor");
+              Actual_FS.Read_USB_File (Dev_Path & "/idVendor");
             P : constant String :=
-              Actual_FS.Read_File (Dev_Path & "/idProduct");
+              Actual_FS.Read_USB_File (Dev_Path & "/idProduct");
          begin
             if V = Vendor_ID and then P = Product_ID then
                return True;
@@ -34,8 +34,8 @@ package body Device_Discovery is
          end;
 
          declare
-            V : constant String := Actual_FS.Read_File (Vid_Path);
-            P : constant String := Actual_FS.Read_File (Pid_Path);
+            V : constant String := Actual_FS.Read_USB_File (Vid_Path);
+            P : constant String := Actual_FS.Read_USB_File (Pid_Path);
          begin
             if V = Vendor_ID and then P = Product_ID then
                return True;

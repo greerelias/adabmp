@@ -6,7 +6,7 @@ package Filesystem is
 
    type Instance is interface;
 
-   function Read_File (Self : Instance; Path : String) return String
+   function Read_USB_File (Self : Instance; Path : String) return String
    is abstract;
 
    function Exists (Self : Instance; Path : String) return Boolean is abstract;

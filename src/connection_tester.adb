@@ -1,10 +1,11 @@
+with Ada.Strings.Bounded;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Numerics.Discrete_Random;
 with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Streams;           use Ada.Streams;
 with Protocol;
-with Packet_Formatting;
-with Commands;
+with Packet_Formatter;
+with Commands;              use Commands;
 
 package body Connection_Tester is
 
@@ -13,10 +14,10 @@ package body Connection_Tester is
       Success : out Boolean;
       Info    : out Ada.Strings.Unbounded.Unbounded_String)
    is
-      use Packet_Formatting;
+      use Packet_Formatter;
 
       --  We'll send a Get_Info command with no payload
-      Cmd     : constant Command_Id := Command_Id (Commands.Get_Info);
+      Cmd     : constant Command_Id := Commands.Get_Info;
       Payload : Stream_Element_Array (1 .. 0); -- Empty
 
       Rx_Buffer : Stream_Element_Array (1 .. 256);
@@ -60,7 +61,7 @@ package body Connection_Tester is
 
    exception
       when others =>
-         Info := To_Unbounded_String ("Failed to communicate");
+         Info := To_Unbounded_String ("Failed to to get device info.");
          Success := False;
    end Get_Programmer_Info;
 
@@ -69,10 +70,9 @@ package body Connection_Tester is
       Success : out Boolean;
       Message : out Ada.Strings.Unbounded.Unbounded_String)
    is
-      use Packet_Formatting;
+      use Packet_Formatter;
 
-      --  We'll use 64 bytes of payload
-      Payload_Size : constant Stream_Element_Offset := 64;
+      Payload_Size : constant Stream_Element_Offset := 120;
 
       package Random_Bytes is new
         Ada.Numerics.Discrete_Random (Result_Subtype => Stream_Element);
@@ -90,18 +90,40 @@ package body Connection_Tester is
       Rx_Buffer  : Stream_Element_Array (1 .. 512);
       Rx_Last    : Stream_Element_Offset;
 
-      Cmd : constant Command_Id := Command_Id (Commands.Data_Packet);
-
    begin
       Success := False;
       Random_Bytes.Reset (Gen);
       Fill_Random (Tx_Payload);
-      Put_Line ("Generated 64 bytes of random payload.");
+      Put_Line ("Generated 120 bytes of random payload.");
 
-      --  Construct and Send
+      -- Tell programmer to prepare for connection test
+      declare
+         Cmd_Packet : constant Stream_Element_Array :=
+           Make_Packet (Test_Connection, Tx_Payload);
+      begin
+         Protocol.Send_Packet (Port, Cmd_Packet);
+      end;
+
+      delay 0.01;
+      -- Confirm that device is ready
+      Protocol.Receive_Packet (Port, Rx_Buffer, Rx_Last);
+      if Rx_Last >= Rx_Buffer'First then
+         declare
+            Response : Stream_Element_Array renames
+              Rx_Buffer (Rx_Buffer'First .. Rx_Last);
+         begin
+            if not Is_Valid (Response) or not Get_Command (Response) = Ready
+            then
+               Message := To_Unbounded_String ("FAILURE: Device not ready");
+               return;
+            end if;
+         end;
+      end if;
+
+      -- Start Test
       declare
          Packet : constant Stream_Element_Array :=
-           Make_Packet (Cmd, Tx_Payload);
+           Make_Packet (Data_Packet, Tx_Payload);
       begin
          Protocol.Send_Packet (Port, Packet);
       end;
@@ -116,7 +138,7 @@ package body Connection_Tester is
               Rx_Buffer (Rx_Buffer'First .. Rx_Last);
          begin
             if Is_Valid (Response) then
-               if Get_Command (Response) = Cmd then
+               if Get_Command (Response) = Data_Packet then
                   declare
                      Rx_Payload : constant Stream_Element_Array :=
                        Get_Payload (Response);

@@ -24,6 +24,7 @@ package body Device_Discovery_Tests is
       end;
    end Test_Find_Device_Success;
 
+
    procedure Test_Find_Device_Not_Found (T : in out Test) is
       FS : aliased Filesystem.Stub.Mock_Filesystem;
    begin

@@ -1,6 +1,7 @@
 package body Filesystem.Stub is
 
-   function Read_File (Self : Mock_Filesystem; Path : String) return String is
+   function Read_USB_File (Self : Mock_Filesystem; Path : String) return String
+   is
       Key : constant Unbounded_String := To_Unbounded_String (Path);
    begin
       if Self.Files.Contains (Key) then
@@ -8,7 +9,7 @@ package body Filesystem.Stub is
       else
          return "";
       end if;
-   end Read_File;
+   end Read_USB_File;
 
    function Exists (Self : Mock_Filesystem; Path : String) return Boolean is
       Key : constant Unbounded_String := To_Unbounded_String (Path);

@@ -9,11 +9,11 @@ package Filesystem.Stub is
    type Mock_Filesystem is new Filesystem.Instance with private;
 
    overriding
-   function Read_File (Self : Mock_Filesystem; Path : String) return String;
+   function Read_USB_File
+     (Self : Mock_Filesystem; Path : String) return String;
 
    overriding
    function Exists (Self : Mock_Filesystem; Path : String) return Boolean;
-
    overriding
    function List_Directory
      (Self : Mock_Filesystem; Path : String) return Filesystem.String_Array;
