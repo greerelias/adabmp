@@ -11,8 +11,6 @@ procedure Adabmp is
 
    Target_VID : constant String := "6666";
    Target_PID : constant String := "4242";
-   Test_Cmd   : constant String := "PING";
-   Test_Resp  : constant String := "PONG";
 
    procedure Run_Connection_Test is
       Port_Name : String (1 .. 100);
@@ -57,16 +55,19 @@ procedure Adabmp is
             return;
       end;
 
-      Put_Line ("Sending command: " & Test_Cmd);
+      Put_Line ("Getting Programmer Info...");
 
       Connection_Tester.Get_Programmer_Info (Port, Success, Msg);
 
-      Put_Line (To_String (Msg));
 
       if Success then
-         Put_Line ("Test PASSED.");
-      else
-         Put_Line ("Test FAILED.");
+         Put_Line ("Found programmer firmware: " & To_String (Msg));
+         Connection_Tester.Run_Test (Port, Success, Msg);
+         if Success then
+            Put_Line ("Result: " & To_String (Msg));
+         else
+            Put_Line ("Result: " & To_String (Msg));
+         end if;
       end if;
 
       Port.Close;

@@ -72,7 +72,7 @@ package body Connection_Tester is
    is
       use Packet_Formatter;
 
-      Payload_Size : constant Stream_Element_Offset := 120;
+      Payload_Size : constant Stream_Element_Offset := 58;
 
       package Random_Bytes is new
         Ada.Numerics.Discrete_Random (Result_Subtype => Stream_Element);
@@ -86,25 +86,25 @@ package body Connection_Tester is
          end loop;
       end Fill_Random;
 
-      Tx_Payload : Stream_Element_Array (1 .. Payload_Size);
-      Rx_Buffer  : Stream_Element_Array (1 .. 512);
-      Rx_Last    : Stream_Element_Offset;
-
+      Tx_Payload  : Stream_Element_Array (1 .. Payload_Size);
+      Rx_Buffer   : Stream_Element_Array (1 .. 512);
+      Rx_Last     : Stream_Element_Offset;
+      Success_Cnt : Integer := 0;
+      subtype Test_Count is Integer range 1 .. Number_Of_Tests;
    begin
       Success := False;
       Random_Bytes.Reset (Gen);
       Fill_Random (Tx_Payload);
-      Put_Line ("Generated 120 bytes of random payload.");
-
+      Put_Line ("Initializing connection test...");
       -- Tell programmer to prepare for connection test
       declare
          Cmd_Packet : constant Stream_Element_Array :=
-           Make_Packet (Test_Connection, Tx_Payload);
+           Make_Packet (Test_Connection, (1 .. 0 => 0));
       begin
          Protocol.Send_Packet (Port, Cmd_Packet);
       end;
 
-      delay 0.01;
+      delay 0.005;
       -- Confirm that device is ready
       Protocol.Receive_Packet (Port, Rx_Buffer, Rx_Last);
       if Rx_Last >= Rx_Buffer'First then
@@ -112,61 +112,89 @@ package body Connection_Tester is
             Response : Stream_Element_Array renames
               Rx_Buffer (Rx_Buffer'First .. Rx_Last);
          begin
-            if not Is_Valid (Response) or not Get_Command (Response) = Ready
-            then
+            if Is_Valid (Response) and then Get_Command (Response) = Ready then
+               Put_Line ("Device ready, begining test...");
+            else
                Message := To_Unbounded_String ("FAILURE: Device not ready");
                return;
             end if;
          end;
-      end if;
-
-      -- Start Test
-      declare
-         Packet : constant Stream_Element_Array :=
-           Make_Packet (Data_Packet, Tx_Payload);
-      begin
-         Protocol.Send_Packet (Port, Packet);
-      end;
-
-      delay 0.01;
-
-      Protocol.Receive_Packet (Port, Rx_Buffer, Rx_Last);
-
-      if Rx_Last >= Rx_Buffer'First then
-         declare
-            Response : Stream_Element_Array renames
-              Rx_Buffer (Rx_Buffer'First .. Rx_Last);
-         begin
-            if Is_Valid (Response) then
-               if Get_Command (Response) = Data_Packet then
-                  declare
-                     Rx_Payload : constant Stream_Element_Array :=
-                       Get_Payload (Response);
-                  begin
-                     if Rx_Payload = Tx_Payload then
-                        Success := True;
-                        Message :=
-                          To_Unbounded_String
-                            ("SUCCESS: Data integrity verified.");
-                     else
-                        Message :=
-                          To_Unbounded_String
-                            ("FAILURE: Data mismatch detected.");
-                     end if;
-                  end;
-               else
-                  Message :=
-                    To_Unbounded_String
-                      ("FAILURE: Unexpected command received.");
-               end if;
-            else
-               Message :=
-                 To_Unbounded_String ("FAILURE: Invalid packet structure.");
-            end if;
-         end;
       else
-         Message := To_Unbounded_String ("FAILURE: No data received.");
+         Message := To_Unbounded_String ("FAILURE: No response from device");
+         return;
       end if;
+      for I in Test_Count loop
+         -- Start Test
+         declare
+            Packet : constant Stream_Element_Array :=
+              Make_Packet (Data_Packet, Tx_Payload);
+         begin
+            Protocol.Send_Packet (Port, Packet);
+         end;
+
+         delay 0.005;
+
+         Protocol.Receive_Packet (Port, Rx_Buffer, Rx_Last);
+
+         if Rx_Last >= Rx_Buffer'First then
+            declare
+               Response : Stream_Element_Array renames
+                 Rx_Buffer (Rx_Buffer'First .. Rx_Last);
+            begin
+               if Is_Valid (Response) then
+                  if Get_Command (Response) = Data_Packet then
+                     declare
+                        Rx_Payload : constant Stream_Element_Array :=
+                          Get_Payload (Response);
+                     begin
+                        if Rx_Payload = Tx_Payload then
+                           Success_Cnt := Success_Cnt + 1;
+                        else
+                           Put_Line ("Payload mismatch!");
+                           Message :=
+                             To_Unbounded_String
+                               ("FAILURE: Data mismatch detected.");
+                        end if;
+                     end;
+                  else
+                     Put_Line
+                       ("Unexpected command: "
+                        & Command_Id'Image (Get_Command (Response)));
+                     Message :=
+                       To_Unbounded_String
+                         ("FAILURE: Unexpected command received.");
+                  end if;
+               else
+                  Put_Line ("Invalid packet structure");
+                  Message :=
+                    To_Unbounded_String ("FAILURE: Invalid packet structure.");
+               end if;
+            end;
+         else
+            Put_Line
+              ("No data received in loop iteration " & Integer'Image (I));
+            Message := To_Unbounded_String ("FAILURE: No data received.");
+         end if;
+         delay 0.001;
+      end loop;
+
+      if Success_Cnt > Integer (Test_Count'Last * 0.95) then
+         Success := True;
+         Message :=
+           To_Unbounded_String
+             ("PASS, "
+              & Integer'Image (Success_Cnt)
+              & " out of "
+              & Integer'Image (Integer (Test_Count'Last))
+              & " packets received.");
+      end if;
+
+      declare
+         Cmd_Packet : constant Stream_Element_Array :=
+           Make_Packet (End_Test, (1 .. 0 => 0));
+      begin
+         Protocol.Send_Packet (Port, Cmd_Packet);
+      end;
 
    exception
       when Protocol.Decode_Error =>

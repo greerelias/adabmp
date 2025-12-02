@@ -23,10 +23,10 @@
             ]
         },
         {
-            "name": "Debug test_runner (gdb)",
+            "name": "Debug test_runner_ts1 (gdb)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/test_runner",
+            "program": "${workspaceFolder}/bin/test_runner_ts1",
             "args": [],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "ada: Build current project",

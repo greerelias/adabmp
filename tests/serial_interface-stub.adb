@@ -33,8 +33,9 @@ package body Serial_Interface.Stub is
          declare
             -- Decode the packet to inspect it
             -- Note: Data includes the trailing 0, so we exclude it for decoding
-            Decoded : Stream_Element_Array :=
+            Decoded         : Stream_Element_Array :=
               Decode (Data (Data'First .. Data'Last - 1));
+            Connection_Test : Boolean := false;
          begin
             if Is_Valid (Decoded) then
                if Get_Command (Decoded) = Test_Connection then
@@ -52,6 +53,9 @@ package body Serial_Interface.Stub is
 
                      Port.Set_Input (Final_Packet);
                   end;
+               elsif Get_Command (Decoded) = End_Test then
+                  -- Consume End_Test, do not reply
+                  null;
                else
                   -- Default loopback behavior for other packets (like Data_Packet)
                   if Data'Length <= Port.Read_Stream'Length then

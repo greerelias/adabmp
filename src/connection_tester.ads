@@ -3,6 +3,7 @@ with Ada.Strings.Unbounded;
 
 package Connection_Tester is
 
+   Number_Of_Tests : constant Integer := 1000;
    procedure Get_Programmer_Info
      (Port    : in out Serial_Interface.Serial_Port'Class;
       Success : out Boolean;

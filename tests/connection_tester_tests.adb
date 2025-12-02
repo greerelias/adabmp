@@ -16,7 +16,9 @@ package body Connection_Tester_Tests is
       Msg     : Unbounded_String;
    begin
       Connection_Tester.Run_Test (Port, Success, Msg);
-
+      if not Success then
+         Put_Line ("Test Failed with Message: " & To_String (Msg));
+      end if;
       Assert (Success, "Test should succeed");
    end Test_Successful_Communication;
 
