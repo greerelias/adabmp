@@ -145,8 +145,8 @@ package body Integration_Tests is
         (Success,
          "Run_Test failed (Success=False). Message: " & To_String (Msg));
       Assert
-        (To_String (Msg) = "SUCCESS: Data integrity verified.",
-         "Expected 'SUCCESS: Data integrity verified.', got '"
+        (To_String (Msg) = "PASS,  1000 out of  1000 packets received.",
+         "Expected 'PASS,  1000 out of  1000 packets received.', got '"
          & To_String (Msg)
          & "'");
 
