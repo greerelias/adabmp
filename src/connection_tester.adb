@@ -93,8 +93,6 @@ package body Connection_Tester is
       subtype Test_Count is Integer range 1 .. Number_Of_Tests;
    begin
       Success := False;
-      Random_Bytes.Reset (Gen);
-      Fill_Random (Tx_Payload);
       Put_Line ("Initializing connection test...");
       -- Tell programmer to prepare for connection test
       declare
@@ -123,8 +121,11 @@ package body Connection_Tester is
          Message := To_Unbounded_String ("FAILURE: No response from device");
          return;
       end if;
+      -- Start Test Loop
       for I in Test_Count loop
          -- Start Test
+         Random_Bytes.Reset (Gen);
+         Fill_Random (Tx_Payload);
          declare
             Packet : constant Stream_Element_Array :=
               Make_Packet (Data_Packet, Tx_Payload);
