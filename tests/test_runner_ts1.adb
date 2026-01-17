@@ -93,8 +93,16 @@ procedure Test_Runner_TS1 is
       -- Get Board Info Tests
       Ret.Add_Test
          (Board_Info_Caller.Create
-            ("Test Get Board Info",
+            ("Test Get Board Info Success",
             Board_Info_Tests.Test_Board_Info_Success'Access));
+      Ret.Add_Test
+         (Board_Info_Caller.Create
+            ("Test Get Board Info Not Found",
+            Board_Info_Tests.Test_Board_Info_Not_Found'Access));
+      Ret.Add_Test
+         (Board_Info_Caller.Create
+            ("Test Get Board Info Format",
+            Board_Info_Tests.Test_Board_Info_Format'Access));
 
       return Ret;
    end Suite;

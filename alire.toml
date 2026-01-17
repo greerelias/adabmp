@@ -8,7 +8,7 @@ licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
 website = ""
 tags = []
 
-executables = ["adabmp"]
+executables = ["adabmp", "test_runner_ts1"]
 [build-switches]
 "*".style_checks = "No"
 
