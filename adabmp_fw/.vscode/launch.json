@@ -1,0 +1,30 @@
+{
+    "version": "1.0.0",
+    "configurations": [
+        {
+            "name": "Debug Pico",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "gdbPath": "gdb-multiarch",
+            "executable": "./bin/adabmp_fw",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/rp2040.cfg"
+            ],
+            "showDevDebugOutput": "raw",
+            "svdFile": "./RP2040.svd",
+            "runToEntryPoint": "Main",
+            "postRestartCommands": [
+                "continue"
+            ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4 // Adjust as needed for refresh rate
+            },
+            "openOCDPreConfigLaunchCommands": [
+                "adapter speed 1000"
+            ],
+        }
+    ]
+}
