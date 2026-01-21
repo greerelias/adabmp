@@ -21,7 +21,6 @@ package body USB_Int is
    Int_ID : constant RP_Interrupts.Interrupt_ID :=
      RP2040_SVD.Interrupts.USBCTRL_Interrupt;
 
-   USB_Stack : USB.Device.USB_Device_Stack (Max_Classes => 1);
 
    procedure USB_Int_Handler is
    begin
@@ -45,7 +44,7 @@ package body USB_Int is
           (Controller      => RP.Device.UDC'Access,
            Manufacturer    => USB.To_USB_String ("Adacore/Team 27"),
            Product         => USB.To_USB_String ("Ada Baremetal Programmer"),
-           Serial_Number   => USB.To_USB_String ("0001"),
+           Serial_Number   => USB.To_USB_String ("0002"),
            Max_Packet_Size => Max_Packet_Size);
 
       if Status /= USB.Device.Ok then

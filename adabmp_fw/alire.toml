@@ -8,7 +8,7 @@ licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
 website = ""
 tags = []
 
-executables = ["adabmp_fw"]
+executables = ["main"]
 
 [[depends-on]]
 pico_bsp = "^2.2.0"

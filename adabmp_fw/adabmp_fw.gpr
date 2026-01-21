@@ -8,7 +8,7 @@ project Adabmp_Fw is
    for Object_Dir use "obj/" & Adabmp_Fw_Config.Build_Profile;
    for Create_Missing_Dirs use "True";
    for Exec_Dir use "bin";
-   for Main use ("adabmp_fw.adb");
+   for Main use ("main.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use Adabmp_Fw_Config.Ada_Compiler_Switches;
