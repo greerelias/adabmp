@@ -1,87 +1,146 @@
-with AUnit.Assertions; use AUnit.Assertions;
---  with Board_Info_Tests;
---  with Filesystem.Stub;
+with Board_Info;
+with Serial_Interface;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Streams;          use Ada.Streams;
+with AUnit.Assertions;     use AUnit.Assertions;
 
 package body Board_Info_Tests is
 
-   procedure Test_Board_Info_Success (T : in out Test) is
+   ---------------------------------------------------------------------------
+   -- Mock serial port
+   ---------------------------------------------------------------------------
+   type Mock_Serial_Port is
+     new Serial_Interface.Serial_Port with record
+        Response      : Stream_Element_Array (1 .. 256);
+        Response_Last : Stream_Element_Offset := 0;
+        Raise_On_Read : Boolean := False;
+        No_Device     : Boolean := False;
+     end record;
+
+   --  ALL overrides must appear immediately after the type
+   overriding
+   procedure Open (Port : in out Mock_Serial_Port; Name : String);
+
+   overriding
+   procedure Close (Port : in out Mock_Serial_Port);
+
+   overriding
+   procedure Write
+     (Port : in out Mock_Serial_Port;
+      Data : Stream_Element_Array);
+
+   overriding
+   procedure Read
+     (Port   : in out Mock_Serial_Port;
+      Buffer : in out Stream_Element_Array;
+      Last   : out Stream_Element_Offset);
+
+   ---------------------------------------------------------------------------
+   -- Override implementations
+   ---------------------------------------------------------------------------
+   procedure Open (Port : in out Mock_Serial_Port; Name : String) is
    begin
-      Assert( True, "Always passes" );
+      null;
+   end Open;
+
+   procedure Close (Port : in out Mock_Serial_Port) is
+   begin
+      null;
+   end Close;
+
+   procedure Write
+     (Port : in out Mock_Serial_Port;
+      Data : Stream_Element_Array) is
+   begin
+      null;
+   end Write;
+
+   procedure Read
+     (Port   : in out Mock_Serial_Port;
+      Buffer : in out Stream_Element_Array;
+      Last   : out Stream_Element_Offset) is
+   begin
+      if Port.Raise_On_Read then
+         raise Constraint_Error;
+      elsif Port.No_Device then
+         Last := 0;
+      else
+         Buffer (Buffer'First ..
+                 Buffer'First + Port.Response_Last - 1) :=
+           Port.Response (1 .. Port.Response_Last);
+
+         Last := Buffer'First + Port.Response_Last - 1;
+      end if;
+   end Read;
+
+   ---------------------------------------------------------------------------
+   -- Helper to load mock response
+   ---------------------------------------------------------------------------
+   procedure Set_Response
+     (Port : in out Mock_Serial_Port;
+      Text : String) is
+   begin
+      Port.Response_Last := Text'Length;
+
+      for I in Text'Range loop
+         Port.Response (Stream_Element_Offset (I)) :=
+           Stream_Element (Character'Pos (Text (I)));
+      end loop;
+   end Set_Response;
+
+   ---------------------------------------------------------------------------
+   -- Tests
+   ---------------------------------------------------------------------------
+   procedure Test_Board_Info_Success (T : in out Test) is
+      Port : aliased Mock_Serial_Port;
+      Info : Unbounded_String;
+   begin
+      Set_Response (Port, "TYPE=DEVBOARD;REV=A1");
+
+      Board_Info.Get_Board_Info (Port, Info);
+
+      Assert
+        (To_String (Info) = "TYPE=DEVBOARD;REV=A1",
+         "Unexpected board info: " & To_String (Info));
    end Test_Board_Info_Success;
 
    procedure Test_Board_Info_Not_Found (T : in out Test) is
+      Port : aliased Mock_Serial_Port;
+      Info : Unbounded_String;
    begin
-      Assert( True, "Always passes" );
+      Port.No_Device := True;
+
+      Board_Info.Get_Board_Info (Port, Info);
+      Assert (False, "Expected Board_Not_Found");
+   exception
+      when Board_Info.Board_Not_Found =>
+         null;
    end Test_Board_Info_Not_Found;
 
-   procedure Test_Board_Info_Format ( T : in out Test) is
+   procedure Test_Board_Info_Format (T : in out Test) is
+      Port : aliased Mock_Serial_Port;
+      Info : Unbounded_String;
    begin
-      Assert( True, "Always passes" );
+      Set_Response (Port, "GARBAGE DATA");
+
+      Board_Info.Get_Board_Info (Port, Info);
+      Assert (False, "Expected Board_Bad_Format");
+   exception
+      when Board_Info.Board_Bad_Format =>
+         null;
    end Test_Board_Info_Format;
 
-   --  procedure Test_Find_Device_Success (T : in out Test) is
-   --     FS : aliased Filesystem.Stub.Mock_Filesystem;
-   --  begin
-   --     -- Setup mock filesystem
-   --     FS.Add_Directory ("/sys/class/tty");
-   --     FS.Add_Directory_Entry ("/sys/class/tty", "ttyACM0");
+   procedure Test_Board_Info_Comm_Error (T : in out Test) is
+      Port : aliased Mock_Serial_Port;
+      Info : Unbounded_String;
+   begin
+      Port.Raise_On_Read := True;
 
-   --     FS.Add_Directory ("/sys/class/tty/ttyACM0/device");
-   --     FS.Add_File ("/sys/class/tty/ttyACM0/device/idVendor", "1234");
-   --     FS.Add_File ("/sys/class/tty/ttyACM0/device/idProduct", "5678");
-
-   --     declare
-   --        Result : constant String :=
-   --          Device_Discovery.Find_Device ("1234", "5678", FS'Access);
-   --     begin
-   --        Assert
-   --          (Result = "/dev/ttyACM0", "Should find ttyACM0, got: " & Result);
-   --     end;
-   --  end Test_Find_Device_Success;
-
-
-   --  procedure Test_Find_Device_Not_Found (T : in out Test) is
-   --     FS : aliased Filesystem.Stub.Mock_Filesystem;
-   --  begin
-   --     FS.Add_Directory ("/sys/class/tty");
-   --     FS.Add_Directory_Entry ("/sys/class/tty", "ttyACM0");
-
-   --     FS.Add_Directory ("/sys/class/tty/ttyACM0/device");
-   --     FS.Add_File ("/sys/class/tty/ttyACM0/device/idVendor", "9999");
-   --     FS.Add_File ("/sys/class/tty/ttyACM0/device/idProduct", "8888");
-
-   --     declare
-   --        Result : constant String :=
-   --          Device_Discovery.Find_Device ("1234", "5678", FS'Access);
-   --     begin
-   --        Assert (False, "Should have raised Device_Not_Found");
-   --     end;
-   --  exception
-   --     when Device_Discovery.Device_Not_Found =>
-   --        null; -- Expected
-   --  end Test_Find_Device_Not_Found;
-
-   --  procedure Test_Find_Device_USB_Structure (T : in out Test) is
-   --     FS : aliased Filesystem.Stub.Mock_Filesystem;
-   --  begin
-   --     -- Test the ../idVendor structure
-   --     FS.Add_Directory ("/sys/class/tty");
-   --     FS.Add_Directory_Entry ("/sys/class/tty", "ttyUSB0");
-
-   --     FS.Add_Directory ("/sys/class/tty/ttyUSB0/device");
-   --     -- Missing direct idVendor
-
-   --     FS.Add_File ("/sys/class/tty/ttyUSB0/device/../idVendor", "ABCD");
-   --     FS.Add_File ("/sys/class/tty/ttyUSB0/device/../idProduct", "EF01");
-
-   --     declare
-   --        Result : constant String :=
-   --          Device_Discovery.Find_Device ("ABCD", "EF01", FS'Access);
-   --     begin
-   --        Assert
-   --          (Result = "/dev/ttyUSB0",
-   --           "Should find ttyUSB0 via parent, got: " & Result);
-   --     end;
-   --  end Test_Find_Device_USB_Structure;
+      Board_Info.Get_Board_Info (Port, Info);
+      Assert (False, "Expected Communication_Error");
+   exception
+      when Board_Info.Communication_Error =>
+         null;
+   end Test_Board_Info_Comm_Error;
 
 end Board_Info_Tests;
