@@ -4,19 +4,22 @@
         {
             "name": "Debug Pico",
             "type": "cortex-debug",
-            "request": "launch",
+            "request": "attach",
             "servertype": "openocd",
             "gdbPath": "gdb-multiarch",
-            "executable": "./bin/adabmp_fw",
+            "executable": "./bin/main",
             "configFiles": [
                 "interface/cmsis-dap.cfg",
                 "target/rp2040.cfg"
             ],
             "showDevDebugOutput": "raw",
             "svdFile": "./RP2040.svd",
-            "runToEntryPoint": "Main",
+            "runToEntryPoint": null,
             "postRestartCommands": [
                 "continue"
+            ],
+            "postAttachCommands": [
+                "continue" // should force immediate resume, doesnt seem to work
             ],
             "liveWatch": {
                 "enabled": true,

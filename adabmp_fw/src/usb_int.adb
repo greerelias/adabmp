@@ -23,8 +23,9 @@ package body USB_Int is
 
 
    procedure USB_Int_Handler is
+      Set : Boolean;
    begin
-
+      Atomic.Test_And_Set (USB_Event, Set);
       --  Interrupt based USB device only requiers to call the stack Poll
       --  procedure for every interrupt of the RP USB device controller.
       USB_Stack.Poll;
@@ -52,8 +53,6 @@ package body USB_Int is
            with "USB stack initialization failed: " & Status'Image;
       end if;
 
-      USB_Stack.Start;
-
       --  Attach a handler to the RP USB device controller interrupt
       RP_Interrupts.Attach_Handler
         (USB_Int_Handler'Access,
@@ -62,6 +61,8 @@ package body USB_Int is
 
       --  Enable the RP USB device controller interrupt
       Cortex_M.NVIC.Enable_Interrupt (Int_ID);
+
+      USB_Stack.Start;
 
    end Initialize;
 

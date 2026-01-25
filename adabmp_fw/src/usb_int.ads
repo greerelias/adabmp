@@ -4,7 +4,9 @@
 --  SPDX-License-Identifier: BSD-3-Clause
 --
 
+with Atomic.Unsigned_8;
 with USB.Device.Serial;
+with Atomic;
 
 package USB_Int is
 
@@ -12,8 +14,9 @@ package USB_Int is
    Max_Packet_Size : constant := 64;
    USB_Serial      :
      aliased USB.Device.Serial.Default_Serial_Class
-               (TX_Buffer_Size => Max_Packet_Size,
-                RX_Buffer_Size => Max_Packet_Size);
+               (TX_Buffer_Size => 512, RX_Buffer_Size => 1024);
+
+   USB_Event : aliased Atomic.Flag := Atomic.Init (False);
 
    procedure Initialize;
 
