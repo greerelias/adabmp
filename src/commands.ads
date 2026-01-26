@@ -7,4 +7,5 @@ package Commands is
    Test_Connection : constant Command_Id := 3;
    Ready           : constant Command_Id := 4;
    End_Test        : constant Command_Id := 5;
+   Get_Board_Info  : constant Command_Id := 6;
 end Commands;

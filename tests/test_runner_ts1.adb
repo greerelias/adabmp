@@ -13,7 +13,8 @@ procedure Test_Runner_TS1 is
      AUnit.Test_Caller (Connection_Tester_Tests.Test);
    package Discovery_Caller is new
      AUnit.Test_Caller (Device_Discovery_Tests.Test);
-   package Protocol_Caller is new AUnit.Test_Caller (Protocol_Tests.Test);
+   package Protocol_Caller is new 
+     AUnit.Test_Caller (Protocol_Tests.Test);
 
    function Suite return Access_Test_Suite is
       Ret : constant Access_Test_Suite := new Test_Suite;
