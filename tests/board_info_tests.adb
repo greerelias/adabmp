@@ -100,8 +100,8 @@ package body Board_Info_Tests is
       Board_Info.Get_Board_Info (Port, Info);
 
       Assert
-        (To_String (Info) = "TYPE=DEVBOARD;REV=A1",
-         "Unexpected board info: " & To_String (Info));
+      (To_String (Info) = "TYPE=DEVBOARD;REV=A1",
+         "Get_Board_Info should return the FPGA board info string");
    end Test_Board_Info_Success;
 
    procedure Test_Board_Info_Not_Found (T : in out Test) is
@@ -111,11 +111,13 @@ package body Board_Info_Tests is
       Port.No_Device := True;
 
       Board_Info.Get_Board_Info (Port, Info);
-      Assert (False, "Expected Board_Not_Found");
+
+      Assert (False, "Get_Board_Info should raise Board_Not_Found when no device responds");
    exception
       when Board_Info.Board_Not_Found =>
          null;
    end Test_Board_Info_Not_Found;
+
 
    procedure Test_Board_Info_Format (T : in out Test) is
       Port : aliased Mock_Serial_Port;
@@ -124,11 +126,13 @@ package body Board_Info_Tests is
       Set_Response (Port, "GARBAGE DATA");
 
       Board_Info.Get_Board_Info (Port, Info);
-      Assert (False, "Expected Board_Bad_Format");
+
+      Assert (False, "Get_Board_Info should raise Board_Bad_Format for malformed responses");
    exception
       when Board_Info.Board_Bad_Format =>
          null;
    end Test_Board_Info_Format;
+
 
    procedure Test_Board_Info_Comm_Error (T : in out Test) is
       Port : aliased Mock_Serial_Port;
@@ -137,10 +141,12 @@ package body Board_Info_Tests is
       Port.Raise_On_Read := True;
 
       Board_Info.Get_Board_Info (Port, Info);
-      Assert (False, "Expected Communication_Error");
+
+      Assert (False, "Get_Board_Info should raise Communication_Error on serial failure");
    exception
       when Board_Info.Communication_Error =>
          null;
    end Test_Board_Info_Comm_Error;
+
 
 end Board_Info_Tests;

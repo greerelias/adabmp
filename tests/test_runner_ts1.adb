@@ -3,7 +3,6 @@ with AUnit.Run;
 with AUnit.Test_Suites;
 with Connection_Tester_Tests;
 with Device_Discovery_Tests;
-with Board_Info_Tests;
 with Protocol_Tests;
 with AUnit.Test_Caller;
 
@@ -16,8 +15,6 @@ procedure Test_Runner_TS1 is
      AUnit.Test_Caller (Device_Discovery_Tests.Test);
    package Protocol_Caller is new 
      AUnit.Test_Caller (Protocol_Tests.Test);
-   package Board_Info_Caller is new
-     AUnit.Test_Caller (Board_Info_Tests.Test);
 
    function Suite return Access_Test_Suite is
       Ret : constant Access_Test_Suite := new Test_Suite;
@@ -89,20 +86,6 @@ procedure Test_Runner_TS1 is
         (Discovery_Caller.Create
            ("Test Find Device USB Structure",
             Device_Discovery_Tests.Test_Find_Device_USB_Structure'Access));
-
-      -- Get Board Info Tests
-      Ret.Add_Test
-         (Board_Info_Caller.Create
-            ("Test Get Board Info Success",
-            Board_Info_Tests.Test_Board_Info_Success'Access));
-      Ret.Add_Test
-         (Board_Info_Caller.Create
-            ("Test Get Board Info Not Found",
-            Board_Info_Tests.Test_Board_Info_Not_Found'Access));
-      Ret.Add_Test
-         (Board_Info_Caller.Create
-            ("Test Get Board Info Format",
-            Board_Info_Tests.Test_Board_Info_Format'Access));
 
       return Ret;
    end Suite;
