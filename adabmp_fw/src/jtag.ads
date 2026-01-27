@@ -1,13 +1,15 @@
 with RP.PIO;            use RP.PIO;
-with JTAG.PIO;
 with RP.GPIO;           use RP.GPIO;
 with Pico;
 with RP.Device;
 with RP2040_SVD.SYSCFG; use RP2040_SVD.SYSCFG;
+with HAL;
 
 package JTAG is
 
    procedure PIO_JTAG_Init;
+
+   procedure JTAG_Write (Data : HAL.UInt8);
 
 private
    Program_Offset : constant PIO_Address := 0;
@@ -23,7 +25,7 @@ private
    TRST : GPIO_Point renames Pico.GP15;
 
    INPUT_SYNC_BYPASS : PROC_IN_SYNC_BYPASS_Register renames
-     SYSCFG_Peripheral.PROC_IN_SYNC_BYPASS;
+     SYSCFG_Periph.PROC_IN_SYNC_BYPASS;
 
    procedure Init_Pins;
 end JTAG;

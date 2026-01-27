@@ -2,7 +2,7 @@
     "version": "1.0.0",
     "configurations": [
         {
-            "name": "Debug Pico",
+            "name": "Attach Debug",
             "type": "cortex-debug",
             "request": "attach",
             "servertype": "openocd",
@@ -14,7 +14,6 @@
             ],
             "showDevDebugOutput": "raw",
             "svdFile": "./RP2040.svd",
-            "runToEntryPoint": null,
             "postRestartCommands": [
                 "continue"
             ],
@@ -28,6 +27,34 @@
             "openOCDPreConfigLaunchCommands": [
                 "adapter speed 1000"
             ],
+            "openOCDLaunchCommands": [
+                "targets rp2040.core0"
+            ]
+        },
+        {
+            "name": "Launch Debug",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "gdbPath": "gdb-multiarch",
+            "executable": "./bin/main",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/rp2040.cfg"
+            ],
+            "showDevDebugOutput": "raw",
+            "svdFile": "./RP2040.svd",
+            "runToEntryPoint": "Main",
+            "preLaunchCommands": [
+                "set remotetimeout 60"
+            ],
+            "postRestartCommands": [
+                "continue"
+            ]
+            // ,
+            // "liveWatch": {
+            //     "enabled": true,
+            // },
         }
     ]
 }

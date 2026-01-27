@@ -1,3 +1,6 @@
+with JTAG.PIO;
+with RP.Device; use RP.Device;
+
 package body JTAG is
    procedure PIO_JTAG_Init is
    begin
@@ -5,23 +8,27 @@ package body JTAG is
       P.Enable;
       P.Load (JTAG.PIO.Jtag_Tdo_Program_Instructions, Program_Offset);
 
-      Set_Out_Pins (Config, TDI, 1);  -- TDI is output to target
-      Set_In_Pins (Config, TDO);      -- TDO is input from target
+      Set_Out_Pins (Config, TDI.Pin, 1);  -- TDI is output to target
+      --  Set_In_Pins (Config, TDO.Pin);      -- TDO is input from target
       Set_Sideset_Pins
-        (Config, TCK); -- Clock can be set/cleared simulaneously with TDO/TDI
-
+        (Config,
+         TCK.Pin); -- Clock can be set/cleared simulaneously with TDO/TDI
+      Set_Sideset (Config, 1, False, False);
       Set_Out_Shift (Config, False, True, 8); -- Auto pull in 8 bits
-      Set_In_Shift (Config, False, True, 8);  -- Auto push out 8 bits
+      --  Set_In_Shift (Config, True, True, 32);  -- Auto push out 8 bits
+      Set_Wrap
+        (Config      => Config,
+         Wrap_Target => JTAG.PIO.Jtag_Tdo_Wrap_Target,
+         Wrap        => JTAG.PIO.Jtag_Tdo_Wrap);
+      Set_Clock_Frequency (Config, 200_000);
 
-      Set_Clkdiv_Int_Frac (Config, Div_Int => 31, 0); -- Around 1Mhz
-
-      P.Set_Pin_Direction (SM, TCK, Output);
-      P.Set_Pin_Direction (SM, TDI, Output);
-      P.Set_Pin_Direction (SM, TDO, Input);
-
-      INPUT_SYNC_BYPASS (11) := 1; -- Bypass input sync for TDO
+      --  INPUT_SYNC_BYPASS.PROC_IN_SYNC_BYPASS :=
+      --    16#800#; -- Bypass input sync for TDO
 
       P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
+      P.Set_Pin_Direction (SM, TCK.Pin, Output);
+      P.Set_Pin_Direction (SM, TDI.Pin, Output);
+      P.Set_Pin_Direction (SM, TDO.Pin, Input);
       P.Set_Enabled (SM, True);
 
    end PIO_JTAG_Init;
@@ -45,9 +52,17 @@ package body JTAG is
       TRST.Configure (Mode => Output, Pull => Pull_Up, Slew_Fast => True);
    end Init_Pins;
 
-   procedure JTAG_Write (Data : UInt8) is
+   procedure JTAG_Write (Data : HAL.UInt8) is
       Success : Boolean;
+      Input   : HAL.UInt32;
    begin
-      P.Try_Put (SM, UInt32 (Data), Success);
+      P.Put (SM, 7);
+      P.Put (SM, 16#AAAAAAAA#);
+      --  P.Put (SM, 16#FFFFFFFF#);
+      --  P.Put (SM, HAL.UInt32 (Data));
+      --  P.Try_Put (SM, 7, Success);
+      --  P.Try_Put (SM, HAL.UInt32 (Data), Success);
+      --  P.Try_Get (SM, Input, Success);
+      --  P.Get (SM, Input);
    end JTAG_Write;
 end JTAG;

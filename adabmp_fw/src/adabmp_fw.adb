@@ -1,4 +1,3 @@
-with AdaBMP_FW;
 with Commands; use Commands;
 with Cortex_M.NVIC;
 with RP.Device;
@@ -17,13 +16,14 @@ with RP.Timer;          use RP.Timer;
 with RP.GPIO.Interrupts;
 with Cortex_M.NVIC;
 with Protocol;          use Protocol;
+with JTAG;              use JTAG;
 
 package body AdaBMP_FW is
    Disabled_Msg      : constant String := "Interrupt Disabled";
    Enabled_Msg       : constant String := "Interrupt Enabled";
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
-   Testing           : Boolean := False;
+   Testing           : Boolean := True;
    Disabled          : Boolean := False;
 
    Device_Info_Pkt : aliased constant String :=
@@ -46,23 +46,25 @@ package body AdaBMP_FW is
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
          null;
-         Send_Programmer_Info;
-      --  Last_Button_Press := Clock;
-      --  if Disabled then
-      --     Cortex_M.NVIC.Enable_Interrupt (5);
-      --     Length := Enabled_Msg'Length;
-      --     USB_Int.USB_Serial.Write
-      --       (RP.Device.UDC, Enabled_Msg'Address, Length);
-      --     Disabled := False;
-      --     Pico.LED.Set;
-      --  else
-      --     Cortex_M.NVIC.Disable_Interrupt (5);
-      --     Length := Disabled_Msg'Length;
-      --     USB_Int.USB_Serial.Write
-      --       (RP.Device.UDC, Disabled_Msg'Address, Length);
-      --     Disabled := True;
-      --     Pico.LED.Clear;
-      --  end if;
+         --  Send_Programmer_Info;
+         --  Last_Button_Press := Clock;
+         --  if Disabled then
+         --     Cortex_M.NVIC.Enable_Interrupt (5);
+         --     Length := Enabled_Msg'Length;
+         --     USB_Int.USB_Serial.Write
+         --       (RP.Device.UDC, Enabled_Msg'Address, Length);
+         --     Disabled := False;
+         --     Pico.LED.Set;
+         --  else
+         --     Cortex_M.NVIC.Disable_Interrupt (5);
+         --     Length := Disabled_Msg'Length;
+         --     USB_Int.USB_Serial.Write
+         --       (RP.Device.UDC, Disabled_Msg'Address, Length);
+         --     Disabled := True;
+         --  Pico.LED.Clear;
+         --  end if;
+         JTAG_Write (2#01011100#);
+         Pico.LED.Toggle;
 
       end if;
    end GPIO_Isr_Handler;
@@ -116,21 +118,21 @@ package body AdaBMP_FW is
       RP.Clock.Initialize (Pico.XOSC_Frequency);
       RP.GPIO.Enable; -- Seems to be needed to enable USB
 
-      if not Stack.Register_Class (Serial'Access) then
-         raise Program_Error;
-      end if;
-      if Stack.Initialize
-           (RP.Device.UDC'Access,
-            USB.To_USB_String ("Ada Baremetal Programmer"),
-            USB.To_USB_String ("AdaCore/Team 27"),
-            USB.To_USB_String ("0001"),
-            64)
-        /= Ok
-      then
-         raise Program_Error;
-      end if;
+      --  if not Stack.Register_Class (Serial'Access) then
+      --     raise Program_Error;
+      --  end if;
+      --  if Stack.Initialize
+      --       (RP.Device.UDC'Access,
+      --        USB.To_USB_String ("Ada Baremetal Programmer"),
+      --        USB.To_USB_String ("AdaCore/Team 27"),
+      --        USB.To_USB_String ("0001"),
+      --        64)
+      --    /= Ok
+      --  then
+      --     raise Program_Error;
+      --  end if;
 
-      Stack.Start;
+      --  Stack.Start;
 
       if Testing then
          -- Enable external switch for testing
@@ -141,16 +143,24 @@ package body AdaBMP_FW is
 
          Pico.LED.Configure (RP.GPIO.Output);
          Pico.LED.Set;
+
+         JTAG.PIO_JTAG_Init;
+
+         --  RP.Device.Timer.Enable;
          loop
-            Stack.Poll;
-            if Serial.List_Ctrl_State.DTE_Is_Present then
-               Length := Rx'Length;
-               Serial.Read (Rx'Address, Length);
-               --  USB_Int.Stack.Poll;
-               if Length > 0 then
-                  Serial.Write (RP.Device.UDC, Rx'Address, Length);
-               end if;
-            end if;
+            --  Stack.Poll;
+            --  if Serial.List_Ctrl_State.DTE_Is_Present then
+            --     Length := Rx'Length;
+            --     Serial.Read (Rx'Address, Length);
+            --     --  USB_Int.Stack.Poll;
+            --     if Length > 0 then
+            --        Serial.Write (RP.Device.UDC, Rx'Address, Length);
+            --     end if;
+            --  end if;
+            --  Pico.LED.Toggle;
+            --  JTAG_Write (2#01011100#);
+            --  RP.Device.Timer.Delay_Milliseconds (100);
+
             null;
          end loop;
       else
