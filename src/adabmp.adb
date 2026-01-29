@@ -86,12 +86,16 @@ procedure Adabmp is
 
 begin
    if Ada.Command_Line.Argument_Count = 0 then
-      Put_Line ("Usage: adabmp --test-connection");
+      Put_Line ("--- Commands ---");
+      Put_Line ("'adabmp --test-connection'  : Tests connection to programmer");
+      Put_Line ("'adabmp --board-info'       : Retrieves information about target board");
       return;
    end if;
 
    if Ada.Command_Line.Argument (1) = "--test-connection" then
       Run_Connection_Test;
+   --  elsif Ada.Command_Line.Argument (1) = "--board-info" then
+      --  Run_Board_Info_Test;
    else
       Put_Line ("Unknown argument: " & Ada.Command_Line.Argument (1));
    end if;
