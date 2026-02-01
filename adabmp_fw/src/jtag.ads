@@ -3,13 +3,23 @@ with RP.GPIO;           use RP.GPIO;
 with Pico;
 with RP.Device;
 with RP2040_SVD.SYSCFG; use RP2040_SVD.SYSCFG;
-with HAL;
+with HAL;               use HAL;
+with System;
+with Interfaces;        use Interfaces;
+with RP2040_SVD.PIO;
 
 package JTAG is
 
    procedure PIO_JTAG_Init;
 
-   procedure JTAG_Write (Data : HAL.UInt8);
+   procedure JTAG_Write (Data : UInt8);
+
+   procedure JTAG_Read_Blocking (Length : UInt32; Data : in out UInt32);
+
+   procedure JTAG_Get_Board_Info (Data : in out UInt32);
+
+   procedure JTAG_Strobe_Blocking (Count : UInt32);
+   procedure JTAG_Set_TMS (Value : Boolean);
 
 private
    Program_Offset : constant PIO_Address := 0;
@@ -24,8 +34,12 @@ private
    RST  : GPIO_Point renames Pico.GP14;
    TRST : GPIO_Point renames Pico.GP15;
 
-   INPUT_SYNC_BYPASS : PROC_IN_SYNC_BYPASS_Register renames
-     SYSCFG_Periph.PROC_IN_SYNC_BYPASS;
+   TX_FIFO : aliased UInt32_Array (1 .. 4)
+   with Volatile, Import, Address => P.TX_FIFO_Address (SM);
 
+   RX_FIFO : aliased UInt32_Array (1 .. 4)
+   with Volatile, Import, Address => P.RX_FIFO_Address (SM);
+
+   PIO0_Reg : RP2040_SVD.PIO.PIO_Peripheral renames RP2040_SVD.PIO.PIO0_Periph;
    procedure Init_Pins;
 end JTAG;

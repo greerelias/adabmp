@@ -39,12 +39,13 @@
 
 ; data is captured on the leading edge of each TCK pulse, and
 ; transitions on the trailing edge, or some time before the first leading edge.
-    pull                        ; put data length into OSR - is this needed with autopull???
+    pull            side 0            ; put data length into OSR - is this needed with autopull???
     out x, 32       side 0      ; move data length into scratch x
 loop:
     out pins, 1     side 0      ; Stall here on empty (sideset proceeds even if instruction stalls, so we stall with TCK low
     nop             side 1      ; raise TCK
-    nop             side 1      ; raise TCK
-    ;in pins, 1      side 1      ; sample TDO
+    in pins, 1      side 1      ; sample TDO
     jmp x-- loop    side 0
-    ;push            side 0      ; Force the last ISR bits to be pushed to the tx fifo
+    push side 0      ; Force the last ISR bits to be pushed to the tx fifo
+    irq clear 0     side 0
+    ;pull           side 0

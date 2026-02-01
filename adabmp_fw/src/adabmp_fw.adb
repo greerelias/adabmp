@@ -42,7 +42,7 @@ package body AdaBMP_FW is
    is
       pragma Unreferenced (Pin);
       pragma Unreferenced (Trigger);
-
+      --  Info : UInt32;
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
          null;
@@ -63,9 +63,17 @@ package body AdaBMP_FW is
          --     Disabled := True;
          --  Pico.LED.Clear;
          --  end if;
-         JTAG_Write (2#01011100#);
+         JTAG_Get_Board_Info (Info);
          Pico.LED.Toggle;
 
+         if Serial.List_Ctrl_State.DTE_Is_Present then
+            Length := Rx'Length;
+            Serial.Read (Rx'Address, Length);
+            --  USB_Int.Stack.Poll;
+            if Length > 0 then
+               Serial.Write (RP.Device.UDC, Rx'Address, Length);
+            end if;
+         end if;
       end if;
    end GPIO_Isr_Handler;
 

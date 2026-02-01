@@ -12,6 +12,8 @@ package AdaBMP_FW is
       Debugging_Target);
 
    State : Programmer_State := Idle;
+   Info  : HAL.UInt32
+   with Volatile, Export, Convention => C, External_Name => "db_info";
    Tx    : HAL.UInt8_Array (1 .. 256)
    with Volatile, Export, Convention => C, External_Name => "_tx";
 

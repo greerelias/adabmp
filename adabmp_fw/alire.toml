@@ -15,6 +15,3 @@ pico_bsp = "^2.2.0"
 [build-switches]
 "*".style_checks = "No"
 
-[build-profiles]
-rp2040_hal = "development"
-pico_bsp = "development"

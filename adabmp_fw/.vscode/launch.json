@@ -17,9 +17,6 @@
             "postRestartCommands": [
                 "continue"
             ],
-            "postAttachCommands": [
-                "continue" // should force immediate resume, doesnt seem to work
-            ],
             "liveWatch": {
                 "enabled": true,
                 "samplesPerSecond": 4 // Adjust as needed for refresh rate

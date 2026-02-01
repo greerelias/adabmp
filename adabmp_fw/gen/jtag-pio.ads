@@ -13,15 +13,18 @@ package JTAG.PIO is
    --------------
 
    Jtag_Tdo_Wrap_Target : constant := 0;
-   Jtag_Tdo_Wrap        : constant := 4;
+   Jtag_Tdo_Wrap        : constant := 7;
 
    Jtag_Tdo_Program_Instructions : RP.PIO.Program := (
                     --  .wrap_target
-         16#6020#,  --   0: out    x, 32           side 0
-         16#6001#,  --   1: out    pins, 1         side 0
-         16#b042#,  --   2: nop                    side 1
+         16#80a0#,  --   0: pull   block           side 0
+         16#6020#,  --   1: out    x, 32           side 0
+         16#6001#,  --   2: out    pins, 1         side 0
          16#b042#,  --   3: nop                    side 1
-         16#0041#); --   4: jmp    x--, 1          side 0
+         16#5001#,  --   4: in     pins, 1         side 1
+         16#0042#,  --   5: jmp    x--, 2          side 0
+         16#8020#,  --   6: push   block           side 0
+         16#c040#); --   7: irq    clear 0         side 0
                     --  .wrap
 
 end JTAG.PIO;
