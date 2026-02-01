@@ -1,5 +1,4 @@
-with Interfaces;       use Interfaces;
-with Packet_Formatter; use Packet_Formatter;
+with Packet_Formatting; use Packet_Formatting;
 
 package Commands is
    Get_Programmer_Info : constant Command_Id := 1;

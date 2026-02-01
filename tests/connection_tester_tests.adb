@@ -59,7 +59,7 @@ package body Connection_Tester_Tests is
         Stream_Element_Array
           (1 .. Stream_Element_Offset (Expected_Info'Length));
 
-      Cmd : constant Command_Id := Commands.Get_Info;
+      Cmd : constant Command_Id := Commands.Get_Programmer_Info;
    begin
       Port.Loopback_Enabled := False;
 
