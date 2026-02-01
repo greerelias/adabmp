@@ -56,6 +56,13 @@ package body Serial_Interface.Stub is
                elsif Get_Command (Decoded) = End_Test then
                   -- Consume End_Test, do not reply
                   null;
+               elsif Get_Command (Decoded) = Get_Board_Info then
+                  if Port.Board_Info_Length > 0 then
+                     Port.Read_Stream (1 .. Port.Board_Info_Length) :=
+                        Port.Board_Info_Response (1 .. Port.Board_Info_Length);
+                     Port.Read_Count := Port.Board_Info_Length;
+                     Port.Read_Index := 1;
+                  end if;
                else
                   -- Default loopback behavior for other packets (like Data_Packet)
                   if Data'Length <= Port.Read_Stream'Length then
@@ -111,5 +118,14 @@ package body Serial_Interface.Stub is
          Port.Read_Index := 1;
       end if;
    end Set_Input;
+
+   procedure Set_Board_Info_Response
+      (Port : in out Mock_Port;
+       Data : Stream_Element_Array)
+   is
+   begin
+      Port.Board_Info_Response (1 .. Data'Length) := Data;
+      Port.Board_Info_Length := Data'Length;
+   end Set_Board_Info_Response;
 
 end Serial_Interface.Stub;
