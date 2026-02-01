@@ -42,12 +42,10 @@ package body AdaBMP_FW is
    is
       pragma Unreferenced (Pin);
       pragma Unreferenced (Trigger);
-      --  Info : UInt32;
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
          null;
-         --  Send_Programmer_Info;
-         --  Last_Button_Press := Clock;
+         Last_Button_Press := Clock;
          --  if Disabled then
          --     Cortex_M.NVIC.Enable_Interrupt (5);
          --     Length := Enabled_Msg'Length;
@@ -67,12 +65,8 @@ package body AdaBMP_FW is
          Pico.LED.Toggle;
 
          if Serial.List_Ctrl_State.DTE_Is_Present then
-            Length := Rx'Length;
-            Serial.Read (Rx'Address, Length);
-            --  USB_Int.Stack.Poll;
-            if Length > 0 then
-               Serial.Write (RP.Device.UDC, Rx'Address, Length);
-            end if;
+            Length := 4;
+            Serial.Write (RP.Device.UDC, Info'Address, Length);
          end if;
       end if;
    end GPIO_Isr_Handler;
@@ -126,21 +120,21 @@ package body AdaBMP_FW is
       RP.Clock.Initialize (Pico.XOSC_Frequency);
       RP.GPIO.Enable; -- Seems to be needed to enable USB
 
-      --  if not Stack.Register_Class (Serial'Access) then
-      --     raise Program_Error;
-      --  end if;
-      --  if Stack.Initialize
-      --       (RP.Device.UDC'Access,
-      --        USB.To_USB_String ("Ada Baremetal Programmer"),
-      --        USB.To_USB_String ("AdaCore/Team 27"),
-      --        USB.To_USB_String ("0001"),
-      --        64)
-      --    /= Ok
-      --  then
-      --     raise Program_Error;
-      --  end if;
+      if not Stack.Register_Class (Serial'Access) then
+         raise Program_Error;
+      end if;
+      if Stack.Initialize
+           (RP.Device.UDC'Access,
+            USB.To_USB_String ("Ada Baremetal Programmer"),
+            USB.To_USB_String ("AdaCore/Team 27"),
+            USB.To_USB_String ("0001"),
+            64)
+        /= Ok
+      then
+         raise Program_Error;
+      end if;
 
-      --  Stack.Start;
+      Stack.Start;
 
       if Testing then
          -- Enable external switch for testing
@@ -156,7 +150,7 @@ package body AdaBMP_FW is
 
          --  RP.Device.Timer.Enable;
          loop
-            --  Stack.Poll;
+            Stack.Poll;
             --  if Serial.List_Ctrl_State.DTE_Is_Present then
             --     Length := Rx'Length;
             --     Serial.Read (Rx'Address, Length);

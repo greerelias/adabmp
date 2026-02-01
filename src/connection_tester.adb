@@ -17,7 +17,7 @@ package body Connection_Tester is
       use Packet_Formatter;
 
       --  We'll send a Get_Info command with no payload
-      Cmd     : constant Command_Id := Commands.Get_Info;
+      Cmd     : constant Command_Id := Commands.Get_Programmer_Info;
       Payload : Stream_Element_Array (1 .. 0); -- Empty
 
       Rx_Buffer : Stream_Element_Array (1 .. 256);
