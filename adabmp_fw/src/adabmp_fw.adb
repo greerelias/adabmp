@@ -19,7 +19,7 @@ with Protocol;          use Protocol;
 with JTAG;              use JTAG;
 
 package body AdaBMP_FW is
-   Disabled_Msg      : constant String := "Interrupt Disabled";
+   Disabled_Msg      : constant String := "Interrupt Disableddd";
    Enabled_Msg       : constant String := "Interrupt Enabled";
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
@@ -61,12 +61,12 @@ package body AdaBMP_FW is
          --     Disabled := True;
          --  Pico.LED.Clear;
          --  end if;
-         JTAG_Get_Board_Info (Info);
+         --  JTAG_Get_Board_Info (Info);
          Pico.LED.Toggle;
 
          if Serial.List_Ctrl_State.DTE_Is_Present then
-            Length := 4;
-            Serial.Write (RP.Device.UDC, Info'Address, Length);
+            Length := Disabled_Msg'Length;
+            Serial.Write (RP.Device.UDC, Disabled_Msg'Address, Length);
          end if;
       end if;
    end GPIO_Isr_Handler;
