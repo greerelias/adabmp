@@ -28,5 +28,7 @@ private
 
    procedure Start_Connection_Test;
 
+   procedure Send_Board_Info;
+
    procedure Handle_Command (Command : Command_Id);
 end AdaBMP_FW;

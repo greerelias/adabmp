@@ -61,13 +61,14 @@ package body AdaBMP_FW is
          --     Disabled := True;
          --  Pico.LED.Clear;
          --  end if;
-         JTAG_Get_Board_Info (Info);
+         Send_Board_Info;
          Pico.LED.Toggle;
 
-         if Serial.List_Ctrl_State.DTE_Is_Present then
-            Length := 4;
-            Serial.Write (RP.Device.UDC, Info'Address, Length);
-         end if;
+      --  if Serial.List_Ctrl_State.DTE_Is_Present then
+      --     Length := 4;
+      --     Serial.Write (RP.Device.UDC, Info'Address, Length);
+      --  end if;
+
       end if;
    end GPIO_Isr_Handler;
 
@@ -82,6 +83,9 @@ package body AdaBMP_FW is
                when Test_Connection     =>
                   State := Testing_Connection;
                   Start_Connection_Test;
+
+               when Get_Board_Info      =>
+                  Send_Board_Info;
 
                when Flash_Target        =>
                   null;
@@ -111,8 +115,40 @@ package body AdaBMP_FW is
    begin
       Tx (1 .. Packet'Length) := Packet;
       Tx (Packet'Length + 1) := 0;
+      -- Send Ready Packet
       Serial.Write (RP.Device.UDC, Tx'Address, Length);
    end;
+
+   procedure Send_Board_Info is
+      Info       : aliased UInt32 := 0;
+      Info_Bytes : UInt8_Array (1 .. 4)
+      with Import, Convention => Ada, Address => Info'Address;
+   begin
+      JTAG_Get_Board_Info (Info);
+      if Info > 0 then
+         declare
+            Packet : constant UInt8_Array :=
+              Encode (Make_Packet (Data_Packet, Info_Bytes));
+            Length : UInt32 := UInt32 (Packet'Length + 1);
+         begin
+            Tx (1 .. Packet'Length) := Packet;
+            Tx (Packet'Length + 1) := 0;
+            -- Send idcode Packet LSB first
+            Serial.Write (RP.Device.UDC, Tx'Address, Length);
+         end;
+      else
+         declare
+            Packet : constant UInt8_Array :=
+              Encode (Make_Packet (JTAG_Error, (1 .. 0 => 0)));
+            Length : UInt32 := UInt32 (Packet'Length + 1);
+         begin
+            Tx (1 .. Packet'Length) := Packet;
+            Tx (Packet'Length + 1) := 0;
+            -- Send error message
+            Serial.Write (RP.Device.UDC, Tx'Address, Length);
+         end;
+      end if;
+   end Send_Board_Info;
 
    procedure Run is
       Index : Integer := 0;
@@ -134,6 +170,8 @@ package body AdaBMP_FW is
          raise Program_Error;
       end if;
 
+      JTAG.PIO_JTAG_Init;
+
       Stack.Start;
 
       if Testing then
@@ -145,8 +183,6 @@ package body AdaBMP_FW is
 
          Pico.LED.Configure (RP.GPIO.Output);
          Pico.LED.Set;
-
-         JTAG.PIO_JTAG_Init;
 
          --  RP.Device.Timer.Enable;
          loop
