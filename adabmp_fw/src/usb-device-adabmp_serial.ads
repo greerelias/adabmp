@@ -30,14 +30,16 @@
 ------------------------------------------------------------------------------
 
 with BBqueue;
-private with BBqueue.Buffers.Framed;
-private with Atomic;
+with Packet_Manager; use Packet_Manager;
+with BBqueue.Buffers.Framed_M0;
+with Atomic;
 
-package USB.Device.Serial is
 
-   type Default_Serial_Class
-     (TX_Buffer_Size, RX_Buffer_Size : BBqueue.Buffer_Size)
-   is limited new USB_Device_Class with private;
+package USB.Device.AdaBMP_Serial is
+
+   --  type Default_Serial_Class
+   --    (TX_Buffer_Size, RX_Buffer_Size : BBqueue.Buffer_Size)
+   --  is limited new USB_Device_Class with private;
 
    type CDC_Line_Coding is record
       Bitrate   : UInt32;
@@ -53,6 +55,28 @@ package USB.Device.Serial is
       Reserved                    : UInt14;
    end record
    with Pack, Size => 16;
+
+
+   type Default_Serial_Class
+     (TX_Buffer_Size, RX_Buffer_Size : BBqueue.Buffer_Size)
+   is limited new USB_Device_Class with record
+      Interface_Index : Interface_Id;
+      Int_EP          : USB.EP_Id;
+      Bulk_EP         : USB.EP_Id;
+      Iface_Str       : USB.String_Id := Invalid_String_Id;
+
+      Int_Buf      : System.Address := System.Null_Address;
+      Bulk_Out_Buf : System.Address := System.Null_Address;
+      Bulk_In_Buf  : System.Address := System.Null_Address;
+
+      TX_Queue : BBqueue.Buffers.Framed_M0.Framed_Buffer (TX_Buffer_Size);
+      RX_Queue : BBqueue.Buffers.Framed_M0.Framed_Buffer (RX_Buffer_Size);
+
+      TX_In_Progress : aliased Atomic.Flag := Atomic.Init (False);
+
+      Coding : CDC_Line_Coding;
+      State  : CDC_Line_Control_State;
+   end record;
 
    function Line_Coding (This : Default_Serial_Class) return CDC_Line_Coding;
 
@@ -95,26 +119,6 @@ package USB.Device.Serial is
 
 private
 
-   type Default_Serial_Class
-     (TX_Buffer_Size, RX_Buffer_Size : BBqueue.Buffer_Size)
-   is limited new USB_Device_Class with record
-      Interface_Index : Interface_Id;
-      Int_EP          : USB.EP_Id;
-      Bulk_EP         : USB.EP_Id;
-      Iface_Str       : USB.String_Id := Invalid_String_Id;
-
-      Int_Buf      : System.Address := System.Null_Address;
-      Bulk_Out_Buf : System.Address := System.Null_Address;
-      Bulk_In_Buf  : System.Address := System.Null_Address;
-
-      TX_Queue : BBqueue.Buffers.Framed.Framed_Buffer (TX_Buffer_Size);
-      RX_Queue : BBqueue.Buffers.Framed.Framed_Buffer (RX_Buffer_Size);
-
-      TX_In_Progress : aliased Atomic.Flag := Atomic.Init (False);
-
-      Coding : CDC_Line_Coding;
-      State  : CDC_Line_Control_State;
-   end record;
 
    procedure Setup_RX
      (This : in out Default_Serial_Class;
@@ -164,4 +168,4 @@ private
       EP   : EP_Addr;
       CNT  : Packet_Size);
 
-end USB.Device.Serial;
+end USB.Device.AdaBMP_Serial;

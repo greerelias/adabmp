@@ -10,8 +10,6 @@ tags = []
 
 executables = ["main"]
 
-[[pins]]
-usb_embedded = { path = "./usb_embedded/"}
 
 [[depends-on]]
 pico_bsp = "^2.2.0"
@@ -19,5 +17,3 @@ usb_embedded = "*"
 [build-switches]
 "*".style_checks = "No"
 
-[build-profiles]
-usb_embedded = "development"

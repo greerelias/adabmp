@@ -32,16 +32,20 @@
 with System;                  use System;
 with System.Storage_Elements; use System.Storage_Elements;
 
-with BBqueue;                use BBqueue;
-with BBqueue.Buffers.Framed; use BBqueue.Buffers.Framed;
+with Interfaces;                use Interfaces;
+with Atomic.Unsigned_32;
+with BBqueue;                   use BBqueue;
+with BBqueue.Buffers.Framed_M0; use BBqueue.Buffers.Framed_M0;
 
 with USB.Utils;
 with USB.Logging.Device;
 
-package body USB.Device.Serial is
+package body USB.Device.AdaBMP_Serial is
 
    Irq_Buffer_Size  : constant := 64;
    Bulk_Buffer_Size : constant := 64;  --  Linux only supports up to 64 bytes
+
+   package AtomicU32 renames Atomic.Unsigned_32;
 
    type Class_Request_Type is
      (Set_Line_Coding, Get_Line_Coding, Set_Control_Line_State, Send_Break);
@@ -346,7 +350,7 @@ package body USB.Device.Serial is
 
          --  Move OUT data to the RX queue
          declare
-            WG : BBqueue.Buffers.Framed.Write_Grant;
+            WG : BBqueue.Buffers.Framed_M0.Write_Grant;
          begin
             Grant (This.RX_Queue, WG, Framed_Count (CNT));
 
@@ -357,8 +361,11 @@ package body USB.Device.Serial is
                   Dst   => Slice (WG).Addr,
                   Count => CNT);
 
-               BBqueue.Buffers.Framed.Commit
+               BBqueue.Buffers.Framed_M0.Commit
                  (This.RX_Queue, WG, Framed_Count (CNT));
+               AtomicU32.Add
+                 (In_Packet_Counter, 1); -- Increment Packet Counter
+
             end if;
          end;
 
@@ -398,7 +405,7 @@ package body USB.Device.Serial is
      (This : in out Default_Serial_Class;
       UDC  : in out USB_Device_Controller'Class)
    is
-      RG             : BBqueue.Buffers.Framed.Read_Grant;
+      RG             : BBqueue.Buffers.Framed_M0.Read_Grant;
       TX_In_Progress : Boolean;
    begin
 
@@ -468,7 +475,7 @@ package body USB.Device.Serial is
       Buf  : System.Address;
       Len  : in out UInt32)
    is
-      RG : BBqueue.Buffers.Framed.Read_Grant;
+      RG : BBqueue.Buffers.Framed_M0.Read_Grant;
    begin
       Read (This.RX_Queue, RG);
 
@@ -506,7 +513,7 @@ package body USB.Device.Serial is
       Buf  : System.Address;
       Len  : in out UInt32)
    is
-      WG : BBqueue.Buffers.Framed.Write_Grant;
+      WG : BBqueue.Buffers.Framed_M0.Write_Grant;
    begin
       Grant (This.TX_Queue, WG, Framed_Count (Len));
 
@@ -518,7 +525,8 @@ package body USB.Device.Serial is
 
          USB.Utils.Copy (Src => Buf, Dst => Slice (WG).Addr, Count => Len);
 
-         BBqueue.Buffers.Framed.Commit (This.TX_Queue, WG, Framed_Count (Len));
+         BBqueue.Buffers.Framed_M0.Commit
+           (This.TX_Queue, WG, Framed_Count (Len));
 
          This.Setup_TX (UDC);
       else
@@ -541,4 +549,4 @@ package body USB.Device.Serial is
       This.Write (UDC, Str'Address, Len);
    end Write;
 
-end USB.Device.Serial;
+end USB.Device.AdaBMP_Serial;

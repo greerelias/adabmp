@@ -8,7 +8,8 @@ with RP_Interrupts;
 with Cortex_M.NVIC;
 
 with RP2040_SVD.Interrupts;
-
+with Packet_Manager; use Packet_Manager;
+with Atomic.Unsigned_32;
 with RP.Device;
 
 with USB.Device;
@@ -28,7 +29,9 @@ package body USB_Int is
       Atomic.Test_And_Set (USB_Event, Set);
       --  Interrupt based USB device only requiers to call the stack Poll
       --  procedure for every interrupt of the RP USB device controller.
-      USB_Stack.Poll;
+      if Atomic.Unsigned_32.Load (In_Packet_Counter) < Max_Packets then
+         USB_Stack.Poll;
+      end if;
 
    end USB_Int_Handler;
 
@@ -60,7 +63,7 @@ package body USB_Int is
          RP_Interrupts.Interrupt_Priority'First);
 
       --  Enable the RP USB device controller interrupt
-      Cortex_M.NVIC.Enable_Interrupt (Int_ID);
+      --  Cortex_M.NVIC.Enable_Interrupt (Int_ID);
 
       USB_Stack.Start;
 
