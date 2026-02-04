@@ -1,0 +1,4 @@
+0000 - Version
+0011 0110 0010 1101 - Part Number
+0000 1001 001 Xilinx
+1 - manditory bit

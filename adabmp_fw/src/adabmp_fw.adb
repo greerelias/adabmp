@@ -23,7 +23,7 @@ package body AdaBMP_FW is
    Enabled_Msg       : constant String := "Interrupt Enabled";
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
-   Testing           : Boolean := True;
+   Testing           : Boolean := False;
    Disabled          : Boolean := False;
 
    Device_Info_Pkt : aliased constant String :=

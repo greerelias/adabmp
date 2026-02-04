@@ -1,12 +1,14 @@
 with Serial_Interface;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Text_IO;           use Ada.Text_IO;
+with Ada.Streams;           use Ada.Streams;
+with Protocol;
+with Ada.Exceptions;        use Ada.Exceptions;
 
 package body Board_Info is
 
    procedure Get_Board_Info
-     (Port    : in out Serial_Interface.Serial_Port'Class;
-      Success : out Boolean;
-      Info    : out Unbounded_String) 
+     (Port : in out Serial_Interface.Serial_Port'Class; Success : out Boolean)
    is
       use Packet_Formatter;
 
@@ -35,28 +37,32 @@ package body Board_Info is
                declare
                   Resp_Payload : constant Stream_Element_Array :=
                     Get_Payload (Response);
+                  Info         : Board_Info_Record_Access;
                   Result_Str   : String (1 .. Integer (Resp_Payload'Length));
                begin
-                  for I in Resp_Payload'Range loop
-                     Result_Str (Integer (I - Resp_Payload'First + 1)) :=
-                       Character'Val (Resp_Payload (I));
+                  Info.Bytes (1) := Resp_Payload (Resp_Payload'Last - 0);
+                  Info.Bytes (2) := Resp_Payload (Resp_Payload'Last - 1);
+                  Info.Bytes (3) := Resp_Payload (Resp_Payload'Last - 2);
+                  Info.Bytes (4) := Resp_Payload (Resp_Payload'Last - 3);
+                  for I in Info.Bytes'Range loop
+                     Put_Line (Stream_Element'Image (Info.Bytes (I)));
                   end loop;
-                  Info := To_Unbounded_String (Result_Str);
                   Success := True;
                end;
             else
-               Info := To_Unbounded_String ("Invalid packet received");
                Success := False;
             end if;
          end;
       else
+         Put_Line ("Rx_Last is NOT greater than or equal to Rx_Buffer'First");
          Success := False;
       end if;
 
    exception
-      when others =>
-         Info := To_Unbounded_String ("Failed to to get board info.");
-         Success := False;
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
    end Get_Board_Info;
 
 end Board_Info;
