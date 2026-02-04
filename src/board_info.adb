@@ -44,6 +44,12 @@ package body Board_Info is
                   Info.Bytes (2) := Resp_Payload (Resp_Payload'Last - 1);
                   Info.Bytes (3) := Resp_Payload (Resp_Payload'Last - 2);
                   Info.Bytes (4) := Resp_Payload (Resp_Payload'Last - 3);
+                  --  idcode 0x362d093
+                  --  manufacturer xilinx
+                  --  family artix a7 35t
+                  --  model  xc7a35
+                  --  irlength 6
+
                   for I in Info.Bytes'Range loop
                      Put_Line (Stream_Element'Image (Info.Bytes (I)));
                   end loop;

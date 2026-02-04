@@ -2,3 +2,12 @@
 0011 0110 0010 1101 - Part Number
 0000 1001 001 Xilinx
 1 - manditory bit
+0x362d093
+3 98 208 147
+3 62 d0  93
+
+idcode 0x362d093
+manufacturer xilinx
+family artix a7 35t
+model  xc7a35
+irlength 6
