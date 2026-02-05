@@ -119,11 +119,6 @@ procedure Adabmp is
       end;
 
       Board_Info.Get_Board_Info (Port, Success);
-      if Success then
-         Put_Line ("SUCCESS");
-      else
-         Put_Line ("FAIL");
-      end if;
 
       Port.Close;
    exception
