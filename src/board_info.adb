@@ -73,43 +73,43 @@ package body Board_Info is
    procedure Print_Board_Info
       (Info : in Board_Info_Record_Access)
    is 
-      High, Low : Character;
-      Hex_Chars : constant String := "0123456789ABCDEF";
-      Byte : Stream_Element;
-      Manufacturer_Code : Stream_Element := Reverse_Byte(Info.Bytes(2));
+      Raw_ID            : Interfaces.Unsigned_32;
+      High, Low         : Character;
+      Hex_Chars         : constant String := "0123456789ABCDEF";
+      Byte              : Stream_Element;
+      Manufacturer_Code : Interfaces.Unsigned_32;
+      Part_Number       : Interfaces.Unsigned_32;
    begin
 
-      Put ( "IDCODE:        ");
+      Raw_ID :=
+         Interfaces.Shift_Left (Interfaces.Unsigned_32 (Info.Bytes (1)), 24) or
+         Interfaces.Shift_Left (Interfaces.Unsigned_32 (Info.Bytes (2)), 16) or
+         Interfaces.Shift_Left (Interfaces.Unsigned_32 (Info.Bytes (3)), 8)  or
+         Interfaces.Unsigned_32 (Info.Bytes (4));
+
+      Put ( "IDCODE:        0x");
       for I in Info.Bytes'Range loop
          Byte := Info.Bytes(I);
          High := Hex_Chars (Integer(Byte) / 16 + 1);
          Low  := Hex_Chars (Integer(Byte) mod 16 + 1);
          Put (High & Low);
       end loop;
-
       Ada.Text_IO.New_Line;
 
-      --  TODO: Figure out why the wrong manufacturer is coming up according to JEP-106
+      Manufacturer_Code := Interfaces.Shift_Right (Raw_ID, 1) and 16#7FF#;
       Put_Line("Manufacturer:  " & To_String(Manufacturer_Lookup(Hex_Key(Manufacturer_Code))));
 
-
-   --  idcode 0x362d093
-   --  manufacturer xilinx
-   --  family artix a7 35t
-   --  model  xc7a35
-   --  irlength 6
+      Part_Number := Shift_Right (Raw_ID, 12) and 16#FFFF#;
+      Put ("Part Number:   0x");
+      for Shift in reverse 0 .. 3 loop
+         declare
+            N : Interfaces.Unsigned_32 := Shift_Right (Part_Number, Shift*4) and 16#F#;
+         begin
+            Put (Hex_Chars (Integer(N) + 1));
+         end;
+      end loop;
+      Ada.Text_IO.New_Line;
 
    end Print_Board_Info;
-
-   function Reverse_Byte(B : Stream_Element) return Stream_Element is
-      R : Stream_Element := 0;
-   begin
-      for I in 0 .. 7 loop
-         if (B and (2**I)) /= 0 then
-            R := R or (2**(7 - I));
-         end if;
-      end loop;
-      return R;
-   end Reverse_Byte;
 
 end Board_Info;

@@ -52,6 +52,5 @@ package Board_Info is
    procedure Print_Board_Info
       (Info : in Board_Info_Record_Access);
 
-   function Reverse_Byte(B : Stream_Element) return Stream_Element;
 
 end Board_Info;
