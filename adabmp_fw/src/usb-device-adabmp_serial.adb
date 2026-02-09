@@ -347,6 +347,11 @@ package body USB.Device.AdaBMP_Serial is
       if EP = (This.Bulk_EP, EP_Out) then
 
          USB.Logging.Device.Log_Serial_Out_TC;
+         if Atomic.Unsigned_32.Load (In_Packet_Counter) + Unsigned_32 (CNT)
+           >= Max_Packets
+         then
+            return;
+         end if;
 
          --  Move OUT data to the RX queue
          declare
@@ -364,7 +369,8 @@ package body USB.Device.AdaBMP_Serial is
                BBqueue.Buffers.Framed_M0.Commit
                  (This.RX_Queue, WG, Framed_Count (CNT));
                AtomicU32.Add
-                 (In_Packet_Counter, 1); -- Increment Packet Counter
+                 (In_Packet_Counter,
+                  Unsigned_32 (CNT)); -- Increment Packet Counter
 
             end if;
          end;

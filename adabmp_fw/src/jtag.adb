@@ -5,7 +5,7 @@ with RP.GPIO;   use RP.GPIO;
 with USB.Lang;
 
 package body JTAG is
-   procedure PIO_JTAG_Init is
+   procedure Init is
    begin
       Init_Pins;
       P.Enable;
@@ -13,14 +13,13 @@ package body JTAG is
 
       Set_Out_Pins (Config, TDI.Pin, 1);  -- TDI is output to target
       Set_In_Pins (Config, TDO.Pin);      -- TDO is input from target
-      Set_Sideset_Pins
-        (Config,
-         TCK.Pin); -- Clock can be set/cleared simulaneously with TDO/TDI
+      -- TCK(clock) can be set/cleared simulaneously with TDO/TDI
+      Set_Sideset_Pins (Config, TCK.Pin);
       Set_Sideset (Config, 1, False, False);
-      Set_Out_Shift
-        (Config, False, True, 32); -- Auto pull in 8 bits, left shift
-      Set_In_Shift
-        (Config, True, False, 32);  -- Auto push out 32 bits/shift right
+      -- Shift out data LSB(right shift), auto pull 32 bits
+      Set_Out_Shift (Config, True, True, 32);
+      -- Shift in data LSB(right shift), no auto push
+      Set_In_Shift (Config, True, False, 32);
 
       -- Bypass Input synchronizer for TDO
       PIO0_Reg.INPUT_SYNC_BYPASS := 16#800#;
@@ -28,7 +27,9 @@ package body JTAG is
         (Config      => Config,
          Wrap_Target => JTAG.PIO.Jtag_Tdo_Wrap_Target,
          Wrap        => JTAG.PIO.Jtag_Tdo_Wrap);
-      Set_Clock_Frequency (Config, 200_000);
+      -- 100KHz: 4 instructions in loop; 1 clock each instruction
+      -- TCK = Clk_F/4
+      Set_Clock_Frequency (Config, 400_000);
 
       P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
       P.Set_Pin_Direction (SM, TCK.Pin, Output);
@@ -37,7 +38,7 @@ package body JTAG is
       P.Set_Enabled (SM, True);
       P.Clear_FIFOs (SM);
 
-   end PIO_JTAG_Init;
+   end Init;
 
    -- Configure GPIO pins
    procedure Init_Pins is
@@ -58,15 +59,15 @@ package body JTAG is
       TRST.Configure (Mode => Output, Pull => Pull_Up, Slew_Fast => True);
    end Init_Pins;
 
-   procedure JTAG_Write (Data : UInt8) is
+   procedure Write (Data : UInt8) is
       Success : Boolean;
       Input   : UInt32;
    begin
       --  TX_FIFO := 8;
       --  TX_FIFO := 16#AA#;
       --  P.Clear_FIFOs (SM);
-      P.Put (SM, 19);
-      P.Put (SM, 16#EAAAAAEA#);
+      P.Put (SM, 31);
+      P.Put (SM, 16#EAAAAAAA#);
       --  P.Put (SM, 16#AAAAAAAA#);
       if not P.RX_FIFO_Empty (SM) then
          P.Get (SM, Input);
@@ -77,9 +78,9 @@ package body JTAG is
       --  P.Try_Put (SM, UInt32 (Data), Success);
       --  P.Try_Get (SM, Input, Success);
       --  P.Get (SM, Input);
-   end JTAG_Write;
+   end Write;
 
-   procedure JTAG_Read_Blocking (Length : UInt32; Data : in out UInt32) is
+   procedure Read_Blocking (Length : UInt32; Data : in out UInt32) is
       Len : constant UInt32 := Length - 1;
    begin
       P.Force_SM_IRQ (0);
@@ -91,31 +92,34 @@ package body JTAG is
       --  if not P.RX_FIFO_Empty (SM) then
       P.Get (SM, Data);
       --  end if;
-   end JTAG_Read_Blocking;
+   end Read_Blocking;
 
-   procedure JTAG_Get_Board_Info (Data : in out UInt32) is
+   -- Shift last word with TMS on final bit
+   procedure Read_Last_Blocking (Length : UInt32; Data : in out UInt32) is
       Last : UInt32;
    begin
-      JTAG_Set_TMS (True);
-      JTAG_Strobe_Blocking (5);
-      JTAG_Set_TMS (False);
-      JTAG_Strobe_Blocking (1);
-      JTAG_Set_TMS (True);
-      JTAG_Strobe_Blocking (1);
-      JTAG_Set_TMS (False);
-      JTAG_Strobe_Blocking (2);
-      JTAG_Read_Blocking (31, Data);
-      JTAG_Set_TMS (True);
-      JTAG_Read_Blocking (1, Data);
-      JTAG_Strobe_Blocking (1);
-      JTAG_Set_TMS (False);
-      JTAG_Strobe_Blocking (1);
+      Read_Blocking (Length - 1, Data);
+      Set_TMS (True);
+      Read_Blocking (1, Last);
       Data := UInt32 (Shift_Right (Data, 1));
       Last := Last and 1;
       Data := Data or Last;
-   end JTAG_Get_Board_Info;
+   end Read_Last_Blocking;
 
-   procedure JTAG_Strobe_Blocking (Count : UInt32) is
+   procedure Get_Board_Info (Data : in out UInt32) is
+   begin
+      TAP_Reset;
+      Set_TMS (True);
+      Strobe_Blocking (1); -- Select-DR-Scan
+      Set_TMS (False);
+      Strobe_Blocking (2); -- Shift-DR
+      Read_Last_Blocking (32, Data); -- Exit1-DR
+      Strobe_Blocking (1); --Update-DR
+      Set_TMS (False);
+      Strobe_Blocking (1); --Run-Test-Idle
+   end Get_Board_Info;
+
+   procedure Strobe_Blocking (Count : UInt32) is
       Cnt   : constant UInt32 := Count - 1;
       Input : UInt32;
    begin
@@ -128,15 +132,38 @@ package body JTAG is
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
-   end JTAG_Strobe_Blocking;
+   end Strobe_Blocking;
 
-   procedure JTAG_Set_TMS (Value : Boolean) is
+   procedure Set_TMS (Value : Boolean) is
    begin
       if Value then
          TMS.Set;
       else
          TMS.Clear;
       end if;
-   end JTAG_Set_TMS;
+   end Set_TMS;
+
+   -- Puts TAP in Run-Test/Idle state
+   procedure TAP_Reset is
+   begin
+      Set_TMS (True);
+      Strobe_Blocking (5);
+      Set_TMS (False);
+      Strobe_Blocking (1);
+   end TAP_Reset;
+
+   procedure Set_TX_Shift_Direction (Dir : Shift_Direction) is
+   begin
+      P.Set_Enabled (SM, False);
+      case Dir is
+         when MSB_First =>
+            Set_Out_Shift (Config, True, True, 32);
+
+         when LSB_First =>
+            Set_Out_Shift (Config, False, True, 32);
+      end case;
+      P.Set_Enabled (SM, True);
+      P.Clear_FIFOs (SM);
+   end Set_TX_Shift_Direction;
 
 end JTAG;

@@ -10,17 +10,21 @@ with RP2040_SVD.PIO;
 
 package JTAG is
 
-   procedure PIO_JTAG_Init;
+   type Shift_Direction is (MSB_First, LSB_First);
 
-   procedure JTAG_Write (Data : UInt8);
+   procedure Init;
 
-   procedure JTAG_Read_Blocking (Length : UInt32; Data : in out UInt32);
+   procedure Write (Data : UInt8);
 
-   procedure JTAG_Get_Board_Info (Data : in out UInt32);
+   procedure Read_Blocking (Length : UInt32; Data : in out UInt32);
 
-   procedure JTAG_Strobe_Blocking (Count : UInt32);
-   procedure JTAG_Set_TMS (Value : Boolean);
+   procedure Get_Board_Info (Data : in out UInt32);
 
+   procedure Strobe_Blocking (Count : UInt32);
+   procedure Set_TMS (Value : Boolean);
+   procedure TAP_Reset;
+
+   procedure Set_TX_Shift_Direction (Dir : Shift_Direction);
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;

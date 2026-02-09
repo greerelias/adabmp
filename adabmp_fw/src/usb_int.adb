@@ -29,9 +29,7 @@ package body USB_Int is
       Atomic.Test_And_Set (USB_Event, Set);
       --  Interrupt based USB device only requiers to call the stack Poll
       --  procedure for every interrupt of the RP USB device controller.
-      if Atomic.Unsigned_32.Load (In_Packet_Counter) < Max_Packets then
-         USB_Stack.Poll;
-      end if;
+      USB_Stack.Poll;
 
    end USB_Int_Handler;
 
@@ -63,7 +61,7 @@ package body USB_Int is
          RP_Interrupts.Interrupt_Priority'First);
 
       --  Enable the RP USB device controller interrupt
-      --  Cortex_M.NVIC.Enable_Interrupt (Int_ID);
+      Cortex_M.NVIC.Enable_Interrupt (Int_ID);
 
       USB_Stack.Start;
 

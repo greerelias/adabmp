@@ -13,8 +13,8 @@ with RP.Timer;       use RP.Timer;
 with RP.GPIO.Interrupts;
 with Cortex_M.NVIC;
 with Protocol;       use Protocol;
-with JTAG;           use JTAG;
---  with                   use
+with JTAG;
+with USB_Int;        use USB_Int;
 with Atomic.Unsigned_32;
 with Packet_Manager; use Packet_Manager;
 with Interfaces;     use Interfaces;
@@ -44,30 +44,30 @@ package body AdaBMP_FW is
          --  if Disabled then
          --     Cortex_M.NVIC.Enable_Interrupt (5);
          --     Length := Enabled_Msg'Length;
-         --     USB_Serial.Write
-         --       (RP.Device.UDC, Enabled_Msg'Address, Length);
+         --     USB_Serial.Write (RP.Device.UDC, Enabled_Msg'Address, Length);
          --     Disabled := False;
          --     Pico.LED.Set;
          --  else
          --     Cortex_M.NVIC.Disable_Interrupt (5);
          --     Length := Disabled_Msg'Length;
-         --     USB_Serial.Write
-         --       (RP.Device.UDC, Disabled_Msg'Address, Length);
+         --     USB_Serial.Write (RP.Device.UDC, Disabled_Msg'Address, Length);
          --     Disabled := True;
          --     Pico.LED.Clear;
          --  end if;
-         --  JTAG_Get_Board_Info (Info);
+         --  JTAG.Write (1);
+         JTAG.Get_Board_Info (Info);
          Pico.LED.Toggle;
 
-         --  if Serial.List_Ctrl_State.DTE_Is_Present then
-         --     Length := Disabled_Msg'Length;
-         --     Serial.Write (RP.Device.UDC, Disabled_Msg'Address, Length);
-         --  end if;
-         if Atomic.Unsigned_32.Load (In_Packet_Counter) > 0 then
-            Length := Rx'Length;
-            USB_Serial.Read (Rx'Address, Length);
-            Atomic.Unsigned_32.Sub (In_Packet_Counter, 1);
-         end if;
+      --  if Serial.List_Ctrl_State.DTE_Is_Present then
+      --     Length := Disabled_Msg'Length;
+      --     Serial.Write (RP.Device.UDC, Disabled_Msg'Address, Length);
+      --  end if;
+      --  if Atomic.Unsigned_32.Load (In_Packet_Counter) > 0 then
+      --     Length := Rx'Length;
+      --     USB_Serial.Read (Rx'Address, Length);
+      --     Atomic.Unsigned_32.Sub (In_Packet_Counter, Unsigned_32 (Length));
+      --     USB_Stack.Poll;
+      --  end if;
 
       end if;
    end GPIO_Isr_Handler;
@@ -121,21 +121,22 @@ package body AdaBMP_FW is
       RP.Clock.Initialize (Pico.XOSC_Frequency);
       RP.GPIO.Enable; -- Seems to be needed to enable USB
 
-      if not USB_Stack.Register_Class (USB_Serial'Access) then
-         raise Program_Error;
-      end if;
-      if USB_Stack.Initialize
-           (RP.Device.UDC'Access,
-            USB.To_USB_String ("Ada Baremetal Programmer"),
-            USB.To_USB_String ("AdaCore/Team 27"),
-            USB.To_USB_String ("0001"),
-            64)
-        /= Ok
-      then
-         raise Program_Error;
-      end if;
+      USB_Int.Initialize;
+      --  if not USB_Stack.Register_Class (USB_Serial'Access) then
+      --     raise Program_Error;
+      --  end if;
+      --  if USB_Stack.Initialize
+      --       (RP.Device.UDC'Access,
+      --        USB.To_USB_String ("Ada Baremetal Programmer"),
+      --        USB.To_USB_String ("AdaCore/Team 27"),
+      --        USB.To_USB_String ("0001"),
+      --        64)
+      --    /= Ok
+      --  then
+      --     raise Program_Error;
+      --  end if;
 
-      USB_Stack.Start;
+      --  USB_Stack.Start;
 
       if Testing then
          -- Enable external switch for testing
@@ -147,13 +148,13 @@ package body AdaBMP_FW is
          Pico.LED.Configure (RP.GPIO.Output);
          Pico.LED.Set;
 
-         JTAG.PIO_JTAG_Init;
+         JTAG.Init;
 
          --  RP.Device.Timer.Enable;
          loop
-            if Atomic.Unsigned_32.Load (In_Packet_Counter) < Max_Packets then
-               USB_Stack.Poll;
-            end if;
+            --  if Atomic.Unsigned_32.Load (In_Packet_Counter) < Max_Packets then
+            --     USB_Stack.Poll;
+            --  end if;
             --  Stack.Poll;
             --  --  if Serial.List_Ctrl_State.DTE_Is_Present then
             --     Length := Rx'Length;

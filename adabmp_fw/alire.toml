@@ -13,7 +13,8 @@ executables = ["main"]
 
 [[depends-on]]
 pico_bsp = "^2.2.0"
-usb_embedded = "*"
+[[build-profiles]]
+usb_embedded = "development"
 [build-switches]
 "*".style_checks = "No"
 
