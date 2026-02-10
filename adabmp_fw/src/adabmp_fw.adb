@@ -55,7 +55,7 @@ package body AdaBMP_FW is
          --     Pico.LED.Clear;
          --  end if;
          --  JTAG.Write (1);
-         JTAG.Get_Board_Info (Info);
+         JTAG.Write_Blocking (16#0FAAAAAA#, 32);
          Pico.LED.Toggle;
 
       --  if Serial.List_Ctrl_State.DTE_Is_Present then

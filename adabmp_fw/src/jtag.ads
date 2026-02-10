@@ -14,9 +14,10 @@ package JTAG is
 
    procedure Init;
 
-   procedure Write (Data : UInt8);
+   procedure Write_Blocking (Data : UInt32; Length : UInt32);
 
-   procedure Read_Blocking (Length : UInt32; Data : in out UInt32);
+   procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
+   procedure Read_Blocking (Data : in out UInt32; Length : UInt32);
 
    procedure Get_Board_Info (Data : in out UInt32);
 

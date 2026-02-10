@@ -59,28 +59,22 @@ package body JTAG is
       TRST.Configure (Mode => Output, Pull => Pull_Up, Slew_Fast => True);
    end Init_Pins;
 
-   procedure Write (Data : UInt8) is
-      Success : Boolean;
-      Input   : UInt32;
+   procedure Write_Blocking (Data : UInt32; Length : UInt32) is
+      Input : UInt32;
    begin
-      --  TX_FIFO := 8;
-      --  TX_FIFO := 16#AA#;
-      --  P.Clear_FIFOs (SM);
-      P.Put (SM, 31);
-      P.Put (SM, 16#EAAAAAAA#);
-      --  P.Put (SM, 16#AAAAAAAA#);
+      P.Force_SM_IRQ (0);
+      P.Put (SM, Length - 1);
+      P.Put (SM, Data);
+      while P.SM_IRQ_Status (0) loop
+         null;
+      end loop;
+      -- Clear RX FIFO
       if not P.RX_FIFO_Empty (SM) then
          P.Get (SM, Input);
       end if;
-      --  P.Put (SM, 16#FFFFFFFF#);
-      --  P.Put (SM, UInt32 (Data));
-      --  P.Try_Put (SM, 7, Success);
-      --  P.Try_Put (SM, UInt32 (Data), Success);
-      --  P.Try_Get (SM, Input, Success);
-      --  P.Get (SM, Input);
-   end Write;
+   end Write_Blocking;
 
-   procedure Read_Blocking (Length : UInt32; Data : in out UInt32) is
+   procedure Read_Blocking (Data : in out UInt32; Length : UInt32) is
       Len : constant UInt32 := Length - 1;
    begin
       P.Force_SM_IRQ (0);
@@ -95,12 +89,12 @@ package body JTAG is
    end Read_Blocking;
 
    -- Shift last word with TMS on final bit
-   procedure Read_Last_Blocking (Length : UInt32; Data : in out UInt32) is
+   procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
       Last : UInt32;
    begin
-      Read_Blocking (Length - 1, Data);
+      Read_Blocking (Data, Length - 2);
       Set_TMS (True);
-      Read_Blocking (1, Last);
+      Read_Blocking (Last, 1);
       Data := UInt32 (Shift_Right (Data, 1));
       Last := Last and 1;
       Data := Data or Last;
@@ -113,7 +107,7 @@ package body JTAG is
       Strobe_Blocking (1); -- Select-DR-Scan
       Set_TMS (False);
       Strobe_Blocking (2); -- Shift-DR
-      Read_Last_Blocking (32, Data); -- Exit1-DR
+      Read_Last_Blocking (Data, 32); -- Exit1-DR
       Strobe_Blocking (1); --Update-DR
       Set_TMS (False);
       Strobe_Blocking (1); --Run-Test-Idle
