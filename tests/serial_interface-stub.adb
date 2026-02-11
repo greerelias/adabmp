@@ -2,6 +2,7 @@ with Ada.Streams; use Ada.Streams;
 with Packet_Formatter;
 with Commands;
 with Protocol;
+with Serial_Interface.Stub;
 
 package body Serial_Interface.Stub is
 
@@ -24,63 +25,76 @@ package body Serial_Interface.Stub is
       use Commands;
       use Protocol;
    begin
-      if Port.Loopback_Enabled then
-         -- Simple loopback: whatever is written is available to read
-         -- BUT, we need to handle the new handshake logic.
-         -- If we receive Test_Connection, we should reply with Ready.
-         -- If we receive Data_Packet, we should reply with the same Data_Packet.
+      if Port.Enabled then
+         case Port.State is
+            when Idle               =>
+               declare
+                  Decoded         : Stream_Element_Array :=
+                    Decode (Data (Data'First .. Data'Last - 1));
+                  Connection_Test : Boolean := false;
+               begin
+                  if Is_Valid (Decoded) then
+                     case Get_Command (Decoded) is
+                        when Test_Connection  =>
+                           Port.State :=
+                             Serial_Interface.Stub.Testing_Connection;
+                           Send_Ready_Packet (Port);
 
-         declare
-            -- Decode the packet to inspect it
-            -- Note: Data includes the trailing 0, so we exclude it for decoding
-            Decoded         : Stream_Element_Array :=
-              Decode (Data (Data'First .. Data'Last - 1));
-            Connection_Test : Boolean := false;
-         begin
-            if Is_Valid (Decoded) then
-               if Get_Command (Decoded) = Test_Connection then
-                  -- Reply with Ready
-                  declare
-                     Ready_Packet  : Stream_Element_Array :=
-                       Make_Packet (Ready, (1 .. 0 => 0)); -- Empty payload
-                     Encoded_Ready : Stream_Element_Array :=
-                       Encode (Ready_Packet);
-                     Final_Packet  :
-                       Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
-                  begin
-                     Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;
-                     Final_Packet (Final_Packet'Last) := 0;
+                        when Get_Board_Info   =>
+                           if Port.Board_Info_Length > 0 then
+                              Port.Read_Stream (1 .. Port.Board_Info_Length) :=
+                                Port.Board_Info_Response
+                                  (1 .. Port.Board_Info_Length);
+                              Port.Read_Count := Port.Board_Info_Length;
+                              Port.Read_Index := 1;
+                           end if;
 
-                     Port.Set_Input (Final_Packet);
-                  end;
-               elsif Get_Command (Decoded) = End_Test then
-                  -- Consume End_Test, do not reply
-                  null;
-               elsif Get_Command (Decoded) = Get_Board_Info then
-                  if Port.Board_Info_Length > 0 then
-                     Port.Read_Stream (1 .. Port.Board_Info_Length) :=
-                        Port.Board_Info_Response (1 .. Port.Board_Info_Length);
-                     Port.Read_Count := Port.Board_Info_Length;
-                     Port.Read_Index := 1;
+                        when Configure_Target =>
+                           declare
+                              Payload     : Stream_Element_Array :=
+                                Get_Payload (Decoded);
+                              Data_Length : Natural
+                              with Address => Payload'Address;
+                           begin
+                              Port.Bitstream_Size := Data_Length;
+                              Port.State :=
+                                Serial_Interface.Stub.Configuring_Target;
+                              Send_Ready_Packet (Port);
+                           end;
+
+                        when others           =>
+                           null;
+                     end case;
                   end if;
-               else
-                  -- Default loopback behavior for other packets (like Data_Packet)
+               end;
+
+            when Testing_Connection =>
+               if Data (3) = 2 then
+                  -- Data_Packet
                   if Data'Length <= Port.Read_Stream'Length then
                      Port.Read_Stream (1 .. Data'Length) := Data;
                      Port.Read_Count := Data'Length;
                      Port.Read_Index := 1;
                   end if;
+               else
+                  Port.State := Idle;
                end if;
-            end if;
-         exception
-            when others =>
-               -- If decoding fails, just loopback raw data (fallback)
-               if Data'Length <= Port.Read_Stream'Length then
-                  Port.Read_Stream (1 .. Data'Length) := Data;
-                  Port.Read_Count := Data'Length;
-                  Port.Read_Index := 1;
+
+            when Configuring_Target =>
+               -- Mock failure during write
+               if Port.Fail_During_Write
+                 and then Port.Write_Count > Port.Bitstream_Size / 2
+               then
+                  Port.State := Idle;
+               elsif Port.Write_Count >= Port.Bitstream_Size then
+                  -- Write complete
+                  Port.State := Idle;
+               else
+                  -- Got data, tell host to send more
+                  Send_Ready_Packet (Port);
                end if;
-         end;
+         end case;
+
       end if;
    end Write;
 
@@ -120,12 +134,23 @@ package body Serial_Interface.Stub is
    end Set_Input;
 
    procedure Set_Board_Info_Response
-      (Port : in out Mock_Port;
-       Data : Stream_Element_Array)
-   is
+     (Port : in out Mock_Port; Data : Stream_Element_Array) is
    begin
       Port.Board_Info_Response (1 .. Data'Length) := Data;
       Port.Board_Info_Length := Data'Length;
    end Set_Board_Info_Response;
+
+   procedure Send_Ready_Packet (Port : in out Mock_Port) is
+      Ready_Packet  : Stream_Element_Array :=
+        Packet_Formatter.Make_Packet
+          (Commands.Ready, (1 .. 0 => 0)); -- Empty payload
+      Encoded_Ready : Stream_Element_Array := Protocol.Encode (Ready_Packet);
+      Final_Packet  : Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
+   begin
+      Port.State := Testing_Connection;
+      Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;
+      Final_Packet (Final_Packet'Last) := 0;
+      Port.Set_Input (Final_Packet);
+   end Send_Ready_Packet;
 
 end Serial_Interface.Stub;

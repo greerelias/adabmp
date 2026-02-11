@@ -28,7 +28,7 @@ package body Connection_Tester_Tests is
       Msg      : Unbounded_String;
       Bad_Data : Stream_Element_Array := (2, 1, 0); -- Decodes to (1)
    begin
-      Port.Loopback_Enabled := False;
+      Port.Enabled := False;
       Port.Set_Input (Bad_Data);
 
       Connection_Tester.Run_Test (Port, Success, Msg);
@@ -41,7 +41,7 @@ package body Connection_Tester_Tests is
       Success : Boolean;
       Msg     : Unbounded_String;
    begin
-      Port.Loopback_Enabled := False;
+      Port.Enabled := False;
       --  Empty input
       Connection_Tester.Run_Test (Port, Success, Msg);
 
@@ -61,7 +61,7 @@ package body Connection_Tester_Tests is
 
       Cmd : constant Command_Id := Commands.Get_Programmer_Info;
    begin
-      Port.Loopback_Enabled := False;
+      Port.Enabled := False;
 
       for I in Expected_Info'Range loop
          Payload (Stream_Element_Offset (I - Expected_Info'First + 1)) :=
@@ -101,7 +101,7 @@ package body Connection_Tester_Tests is
         Protocol.Encode (Raw_Packet);
       Input      : Stream_Element_Array (1 .. Encoded'Length + 1);
    begin
-      Port.Loopback_Enabled := False;
+      Port.Enabled := False;
 
       Input (1 .. Encoded'Length) := Encoded;
       Input (Input'Last) := 0;
@@ -122,7 +122,7 @@ package body Connection_Tester_Tests is
       Success : Boolean;
       Msg     : Unbounded_String;
    begin
-      Port.Loopback_Enabled := False;
+      Port.Enabled := False;
       --  Empty input
       Connection_Tester.Get_Programmer_Info (Port, Success, Msg);
 
