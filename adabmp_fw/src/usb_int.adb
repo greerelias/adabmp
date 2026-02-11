@@ -8,7 +8,8 @@ with RP_Interrupts;
 with Cortex_M.NVIC;
 
 with RP2040_SVD.Interrupts;
-
+with Packet_Manager; use Packet_Manager;
+with Atomic.Unsigned_32;
 with RP.Device;
 
 with USB.Device;
