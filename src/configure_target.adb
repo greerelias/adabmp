@@ -1,8 +1,11 @@
-with Ada.Streams.Stream_IO; use Ada.Streams.Stream_IO;
+with Serial_Interface;
 
-package Configure_Target is
+package body Configure_Target is
    procedure Load_Bitstream
      (Port    : Serial_Interface.Serial_Port'Class;
       Path    : String;
-      Success : Boolean);
+      Success : Boolean) is
+   begin
+      null;
+   end Load_Bitstream;
 end Configure_Target;

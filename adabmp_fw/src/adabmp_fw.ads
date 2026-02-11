@@ -11,7 +11,7 @@ package AdaBMP_FW is
      (Idle,
       Testing_Connection,
       Getting_Board_Info,
-      Flashing_Target,
+      Configuring_Target,
       Debugging_Target);
 
    --  USB_Stack       : USB.Device.USB_Device_Stack (Max_Classes => 1);
