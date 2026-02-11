@@ -1,6 +1,7 @@
 with Ada.Text_IO;
 with Ada.Command_Line;
 with Ada.Strings.Unbounded;
+with Board_Info;
 with Serial_Interface.Impl;
 with Device_Discovery;
 with Connection_Tester;
@@ -84,14 +85,70 @@ procedure Adabmp is
          end if;
    end Run_Connection_Test;
 
+   procedure Run_Get_Board_Info is
+      Port_Name : String (1 .. 100);
+      Port_Len  : Natural := 0;
+      Port      : Serial_Interface.Impl.Com_Port;
+      Success   : Boolean;
+      Msg       : Unbounded_String;
+   begin
+      begin
+         declare
+            Found : constant String :=
+              Device_Discovery.Find_Device (Target_VID, Target_PID);
+         begin
+            if Found'Length > Port_Name'Length then
+               Put_Line ("Error: Port name too long.");
+               return;
+            end if;
+            Port_Name (1 .. Found'Length) := Found;
+            Port_Len := Found'Length;
+         end;
+      exception
+         when Device_Discovery.Device_Not_Found =>
+            Put_Line ("Error: Device not found.");
+            return;
+      end;
+
+      begin
+         Port.Open (Port_Name (1 .. Port_Len));
+      exception
+         when others =>
+            Put_Line ("Error: Failed to open serial port.");
+            return;
+      end;
+
+      Board_Info.Get_Board_Info (Port, Success);
+
+      Port.Close;
+   exception
+      when others =>
+         Put_Line ("An unexpected error occurred.");
+         if Port_Len > 0 then
+            begin
+               Port.Close;
+            exception
+               when others =>
+                  null;
+            end;
+         end if;
+   end Run_Get_Board_Info;
+
 begin
    if Ada.Command_Line.Argument_Count = 0 then
-      Put_Line ("Usage: adabmp --test-connection");
+      Put_Line ("--- Commands ---");
+      Put_Line
+        ("'adabmp --test-connection'  : Tests connection to programmer");
+      Put_Line
+        ("'adabmp --board-info'       : Retrieves information about target board");
       return;
    end if;
 
    if Ada.Command_Line.Argument (1) = "--test-connection" then
       Run_Connection_Test;
+   elsif Ada.Command_Line.Argument (1) = "--board-info" then
+      Run_Get_Board_Info;
+
    else
       Put_Line ("Unknown argument: " & Ada.Command_Line.Argument (1));
    end if;

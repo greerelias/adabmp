@@ -24,7 +24,7 @@ package body AdaBMP_FW is
    Enabled_Msg       : constant String := "Interrupt Enabled";
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
-   Testing           : Boolean := True;
+   Testing           : Boolean := False;
    Disabled          : Boolean := False;
 
    Device_Info_Pkt : aliased constant String :=
@@ -85,6 +85,9 @@ package body AdaBMP_FW is
                   State := Testing_Connection;
                   Start_Connection_Test;
 
+               when Get_Board_Info      =>
+                  Send_Board_Info;
+
                when Flash_Target        =>
                   null;
 
@@ -115,6 +118,37 @@ package body AdaBMP_FW is
       Tx (Packet'Length + 1) := 0;
       USB_Serial.Write (RP.Device.UDC, Tx'Address, Length);
    end;
+
+   procedure Send_Board_Info is
+      Info       : aliased UInt32 := 0;
+      Info_Bytes : UInt8_Array (1 .. 4)
+      with Import, Convention => Ada, Address => Info'Address;
+   begin
+      JTAG_Get_Board_Info (Info);
+      if Info > 0 then
+         declare
+            Packet : constant UInt8_Array :=
+              Encode (Make_Packet (Data_Packet, Info_Bytes));
+            Length : UInt32 := UInt32 (Packet'Length + 1);
+         begin
+            Tx (1 .. Packet'Length) := Packet;
+            Tx (Packet'Length + 1) := 0;
+            -- Send idcode Packet LSB first
+            Serial.Write (RP.Device.UDC, Tx'Address, Length);
+         end;
+      else
+         declare
+            Packet : constant UInt8_Array :=
+              Encode (Make_Packet (JTAG_Error, (1 .. 0 => 0)));
+            Length : UInt32 := UInt32 (Packet'Length + 1);
+         begin
+            Tx (1 .. Packet'Length) := Packet;
+            Tx (Packet'Length + 1) := 0;
+            -- Send error message
+            Serial.Write (RP.Device.UDC, Tx'Address, Length);
+         end;
+      end if;
+   end Send_Board_Info;
 
    procedure Run is
       Index : Integer := 0;

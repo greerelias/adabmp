@@ -12,6 +12,9 @@ package Serial_Interface.Stub is
       Read_Count       : Stream_Element_Offset := 0;
       Read_Index       : Stream_Element_Offset := 1;
       Loopback_Enabled : Boolean := True;
+
+      Board_Info_Response : Stream_Element_Array (1 .. 128);
+      Board_Info_Length   : Stream_Element_Offset := 0;
    end record;
 
    overriding
@@ -29,5 +32,9 @@ package Serial_Interface.Stub is
       Last   : out Stream_Element_Offset);
 
    procedure Set_Input (Port : in out Mock_Port; Data : Stream_Element_Array);
+
+   procedure Set_Board_Info_Response
+      (Port : in out Mock_Port;
+       Data : Stream_Element_Array);
 
 end Serial_Interface.Stub;

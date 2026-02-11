@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/adabmp",
             "args": [
-                "--test-connection"
+                "--board-info"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "ada: Build current project",
