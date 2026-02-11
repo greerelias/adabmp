@@ -15,9 +15,12 @@ package body JTAG is
       Set_In_Pins (Config, TDO.Pin);      -- TDO is input from target
       -- TCK(clock) can be set/cleared simulaneously with TDO/TDI
       Set_Sideset_Pins (Config, TCK.Pin);
+
       Set_Sideset (Config, 1, False, False);
-      -- Shift out data LSB(right shift), auto pull 32 bits
+
+      -- Shift out data LSB(left shift), auto pull 32 bits
       Set_Out_Shift (Config, True, True, 32);
+
       -- Shift in data LSB(right shift), no auto push
       Set_In_Shift (Config, True, False, 32);
 
@@ -103,6 +106,8 @@ package body JTAG is
    procedure Get_Board_Info (Data : in out UInt32) is
    begin
       TAP_Reset;
+      Set_TMS (False); -- Enter Run/Test -Idle
+      Strobe_Blocking (1);
       Set_TMS (True);
       Strobe_Blocking (1); -- Select-DR-Scan
       Set_TMS (False);
@@ -142,20 +147,19 @@ package body JTAG is
    begin
       Set_TMS (True);
       Strobe_Blocking (5);
-      Set_TMS (False);
-      Strobe_Blocking (1);
    end TAP_Reset;
 
    procedure Set_TX_Shift_Direction (Dir : Shift_Direction) is
    begin
       P.Set_Enabled (SM, False);
       case Dir is
-         when MSB_First =>
+         when LSB_First =>
             Set_Out_Shift (Config, True, True, 32);
 
-         when LSB_First =>
+         when MSB_First =>
             Set_Out_Shift (Config, False, True, 32);
       end case;
+      P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
       P.Set_Enabled (SM, True);
       P.Clear_FIFOs (SM);
    end Set_TX_Shift_Direction;

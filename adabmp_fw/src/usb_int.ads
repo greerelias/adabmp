@@ -16,7 +16,7 @@ package USB_Int is
    Max_Packet_Size : constant := 64;
    USB_Serial      :
      aliased USB.Device.AdaBMP_Serial.Default_Serial_Class
-               (TX_Buffer_Size => 512, RX_Buffer_Size => 1024);
+               (TX_Buffer_Size => 256, RX_Buffer_Size => 1088);
 
    USB_Event : aliased Atomic.Flag := Atomic.Init (False);
 

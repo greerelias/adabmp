@@ -25,11 +25,13 @@ package AdaBMP_FW is
    Tx    : HAL.UInt8_Array (1 .. 256)
    with Volatile, Export, Convention => C, External_Name => "_tx";
 
-   Rx     : HAL.UInt8_Array (1 .. 256)
+   Rx     : HAL.UInt8_Array (1 .. 4)
    with Volatile, Export, Convention => C, External_Name => "_rx";
    Length : HAL.UInt32
    with Volatile, Export, Convention => C, External_Name => "_l";
    procedure Run;
+   Data   : HAL.UInt32
+   with Address => Rx'Address;
 
 private
    procedure Send_Programmer_Info;

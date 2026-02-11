@@ -55,7 +55,8 @@ package body AdaBMP_FW is
          --     Pico.LED.Clear;
          --  end if;
          --  JTAG.Write (1);
-         JTAG.Write_Blocking (16#0FAAAAAA#, 32);
+         JTAG.Set_TX_Shift_Direction (JTAG.LSB_First);
+         JTAG.Write_Blocking (Data, 32);
          Pico.LED.Toggle;
 
       --  if Serial.List_Ctrl_State.DTE_Is_Present then
@@ -143,12 +144,13 @@ package body AdaBMP_FW is
          Pico.GP16.Configure (RP.GPIO.Input, RP.GPIO.Pull_Up);
          RP.GPIO.Interrupts.Attach_Handler
            (Pico.GP16, GPIO_Isr_Handler'Access);
-         Pico.GP16.Enable_Interrupt (RP.GPIO.Falling_Edge);
 
          Pico.LED.Configure (RP.GPIO.Output);
          Pico.LED.Set;
 
          JTAG.Init;
+
+         Pico.GP16.Enable_Interrupt (RP.GPIO.Falling_Edge);
 
          --  RP.Device.Timer.Enable;
          loop
@@ -156,14 +158,13 @@ package body AdaBMP_FW is
             --     USB_Stack.Poll;
             --  end if;
             --  Stack.Poll;
-            --  --  if Serial.List_Ctrl_State.DTE_Is_Present then
-            --     Length := Rx'Length;
-            --     Serial.Read (Rx'Address, Length);
-            --     --  USB_Int.Stack.Poll;
-            --     if Length > 0 then
-            --        Serial.Write (RP.Device.UDC, Rx'Address, Length);
-            --     end if;
-            --  end if;
+            if USB_Serial.List_Ctrl_State.DTE_Is_Present then
+               Length := Rx'Length;
+               USB_Serial.Read (Rx'Address, Length);
+               if Length > 0 then
+                  null;
+               end if;
+            end if;
             --  Pico.LED.Toggle;
             --  JTAG_Write (2#01011100#);
             --  RP.Device.Timer.Delay_Milliseconds (100);
