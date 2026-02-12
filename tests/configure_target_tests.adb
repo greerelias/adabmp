@@ -45,6 +45,7 @@ package body Configure_Target_Tests is
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean := True;
    begin
+      Port.Fail_During_Write := True;
       Configure_Target.Load_Bitstream (Port, "tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Configure_Target_Failure;

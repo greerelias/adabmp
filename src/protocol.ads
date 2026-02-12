@@ -25,4 +25,6 @@ package Protocol is
       Data : out Stream_Element_Array;
       Last : out Stream_Element_Offset);
 
+   function Receive_Ready_Packet
+     (Port : in out Serial_Interface.Serial_Port'Class) return Boolean;
 end Protocol;

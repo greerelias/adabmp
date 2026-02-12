@@ -1,3 +1,6 @@
+with Packet_Formatter; use Packet_Formatter;
+with Commands;
+
 package body Protocol is
 
    function Encode (Data : Stream_Element_Array) return Stream_Element_Array is
@@ -141,5 +144,29 @@ package body Protocol is
          Last := Data'First - 1;
       end if;
    end Receive_Packet;
+
+   function Receive_Ready_Packet
+     (Port : in out Serial_Interface.Serial_Port'Class) return Boolean
+   is
+      Rx_Buffer : Stream_Element_Array (1 .. 3);
+      Rx_Last   : Stream_Element_Offset;
+   begin
+
+      Receive_Packet (Port, Rx_Buffer, Rx_Last);
+      if Rx_Last >= Rx_Buffer'First then
+         declare
+            Response : Stream_Element_Array renames
+              Rx_Buffer (Rx_Buffer'First .. Rx_Last);
+         begin
+            if Is_Valid (Response)
+              and then Get_Command (Response) = Commands.Ready
+            then
+               return True;
+            end if;
+         end;
+      end if;
+      return False;
+   end Receive_Ready_Packet;
+
 
 end Protocol;

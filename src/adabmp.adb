@@ -1,10 +1,13 @@
 with Ada.Text_IO;
-with Ada.Command_Line;
+with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Strings.Unbounded;
 with Board_Info;
+with Configure_Target;
 with Serial_Interface.Impl;
 with Device_Discovery;
 with Connection_Tester;
+
+with Ada.Exceptions; use Ada.Exceptions;
 
 procedure Adabmp is
    use Ada.Text_IO;
@@ -122,8 +125,10 @@ procedure Adabmp is
 
       Port.Close;
    exception
-      when others =>
-         Put_Line ("An unexpected error occurred.");
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
          if Port_Len > 0 then
             begin
                Port.Close;
@@ -134,8 +139,58 @@ procedure Adabmp is
          end if;
    end Run_Get_Board_Info;
 
+   procedure Run_Configure_Target (Path : String) is
+      Port_Name : String (1 .. 100);
+      Port_Len  : Natural := 0;
+      Port      : Serial_Interface.Impl.Com_Port;
+      Success   : Boolean;
+      Msg       : Unbounded_String;
+   begin
+      --  begin
+      --     declare
+      --        Found : constant String :=
+      --          Device_Discovery.Find_Device (Target_VID, Target_PID);
+      --     begin
+      --        if Found'Length > Port_Name'Length then
+      --           Put_Line ("Error: Port name too long.");
+      --           return;
+      --        end if;
+      --        Port_Name (1 .. Found'Length) := Found;
+      --        Port_Len := Found'Length;
+      --     end;
+      --  exception
+      --     when Device_Discovery.Device_Not_Found =>
+      --        Put_Line ("Error: Device not found.");
+      --        return;
+      --  end;
+
+      --  begin
+      --     Port.Open (Port_Name (1 .. Port_Len));
+      --  exception
+      --     when others =>
+      --        Put_Line ("Error: Failed to open serial port.");
+      --        return;
+      --  end;
+
+      Configure_Target.Load_Bitstream (Port, Path, Success);
+   --  Port.Close;
+   exception
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
+         if Port_Len > 0 then
+            begin
+               Port.Close;
+            exception
+               when others =>
+                  null;
+            end;
+         end if;
+   end Run_Configure_Target;
+
 begin
-   if Ada.Command_Line.Argument_Count = 0 then
+   if Argument_Count = 0 then
       Put_Line ("--- Commands ---");
       Put_Line
         ("'adabmp --test-connection'  : Tests connection to programmer");
@@ -144,12 +199,13 @@ begin
       return;
    end if;
 
-   if Ada.Command_Line.Argument (1) = "--test-connection" then
+   if Argument (1) = "--test-connection" then
       Run_Connection_Test;
-   elsif Ada.Command_Line.Argument (1) = "--board-info" then
+   elsif Argument (1) = "--board-info" then
       Run_Get_Board_Info;
-
+   elsif Argument (1) = "-ct" and then Argument_Count > 1 then
+      Run_Configure_Target (Argument (2));
    else
-      Put_Line ("Unknown argument: " & Ada.Command_Line.Argument (1));
+      Put_Line ("Unknown argument: " & Argument (1));
    end if;
 end Adabmp;

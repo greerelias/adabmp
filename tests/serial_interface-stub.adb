@@ -88,8 +88,10 @@ package body Serial_Interface.Stub is
                   Port.State := Idle;
                elsif Port.Write_Count >= Port.Bitstream_Size then
                   -- Write complete
+                  Port.Write_Count := 0;
                   Port.State := Idle;
                else
+                  Port.Write_Count := Port.Write_Count + Data'Length;
                   -- Got data, tell host to send more
                   Send_Ready_Packet (Port);
                end if;
@@ -147,7 +149,6 @@ package body Serial_Interface.Stub is
       Encoded_Ready : Stream_Element_Array := Protocol.Encode (Ready_Packet);
       Final_Packet  : Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
    begin
-      Port.State := Testing_Connection;
       Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;
       Final_Packet (Final_Packet'Last) := 0;
       Port.Set_Input (Final_Packet);

@@ -3,7 +3,7 @@ with Serial_Interface;
 
 package Configure_Target is
    procedure Load_Bitstream
-     (Port    : Serial_Interface.Serial_Port'Class;
-      Path    : String;
-      Success : Boolean);
+     (Port    : in out Serial_Interface.Serial_Port'Class;
+      Path    : in String;
+      Success : in out Boolean);
 end Configure_Target;

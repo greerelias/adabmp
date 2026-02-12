@@ -4,8 +4,16 @@ set -e
 echo "Building project..."
 alr build
 
+<<<<<<< HEAD
 echo "Running Unit Tests (Test Runner TS1)..."
 ./bin/test_runner_ts1
 ./bin/test_runner_ts3
+=======
+echo "Running Unit Tests..."
+echo "Running Test Runner TS1..."
+./bin/test_runner_ts1 
+echo "Running Test Runner TS4..."
+./bin/test_runner_ts4
+>>>>>>> 244cd44 (configure target passing unit tests)
 
 echo "All unit tests completed."

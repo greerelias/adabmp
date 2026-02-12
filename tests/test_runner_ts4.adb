@@ -20,7 +20,7 @@ procedure Test_Runner_TS4 is
             Configure_Target_Tests.Test_Configure_Target_Success'Access));
       Ret.Add_Test
         (Configure_Target_Caller.Create
-           ("Test Configure Target Not Response",
+           ("Test Configure Target No Response",
             Configure_Target_Tests.Test_Configure_Target_No_Response'Access));
       Ret.Add_Test
         (Configure_Target_Caller.Create
