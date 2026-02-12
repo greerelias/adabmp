@@ -9,7 +9,9 @@ with Manufacturer_Codes;    use Manufacturer_Codes;
 package body Board_Info is
 
    procedure Get_Board_Info
-     (Port : in out Serial_Interface.Serial_Port'Class; Success : out Boolean)
+     (Port : in out Serial_Interface.Serial_Port'Class; 
+      Info : out Board_Info_Record_Access;
+      Success : out Boolean)
    is
       use Packet_Formatter;
 
@@ -38,7 +40,7 @@ package body Board_Info is
                declare
                   Resp_Payload : constant Stream_Element_Array :=
                     Get_Payload (Response);
-                  Info         : Board_Info_Record_Access;
+                  --  Info         : Board_Info_Record_Access;
                   Result_Str   : String (1 .. Integer (Resp_Payload'Length));
                begin
                   --  Info.Bytes (1) := 16#03#;
@@ -58,7 +60,6 @@ package body Board_Info is
             end if;
          end;
       else
-         Put_Line ("Rx_Last is NOT greater than or equal to Rx_Buffer'First");
          Success := False;
       end if;
 

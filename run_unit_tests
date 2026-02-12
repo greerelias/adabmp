@@ -6,5 +6,6 @@ alr build
 
 echo "Running Unit Tests (Test Runner TS1)..."
 ./bin/test_runner_ts1
+./bin/test_runner_ts3
 
 echo "All unit tests completed."

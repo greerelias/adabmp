@@ -89,8 +89,8 @@ procedure Adabmp is
       Port_Name : String (1 .. 100);
       Port_Len  : Natural := 0;
       Port      : Serial_Interface.Impl.Com_Port;
+      Info      : Board_Info.Board_Info_Record_Access;
       Success   : Boolean;
-      Msg       : Unbounded_String;
    begin
       begin
          declare
@@ -118,7 +118,7 @@ procedure Adabmp is
             return;
       end;
 
-      Board_Info.Get_Board_Info (Port, Success);
+      Board_Info.Get_Board_Info (Port, Info, Success);
 
       Port.Close;
    exception

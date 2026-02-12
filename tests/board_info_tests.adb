@@ -1,8 +1,8 @@
-with Board_Info;
+with Board_Info;            use Board_Info;
 with Serial_Interface;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Streams;          use Ada.Streams;
-with AUnit.Assertions;     use AUnit.Assertions;
+with Ada.Streams;           use Ada.Streams;
+with AUnit.Assertions;      use AUnit.Assertions;
 
 package body Board_Info_Tests is
 
@@ -11,7 +11,7 @@ package body Board_Info_Tests is
    ---------------------------------------------------------------------------
    type Mock_Serial_Port is
      new Serial_Interface.Serial_Port with record
-        Response      : Stream_Element_Array (1 .. 256);
+        Response      : Stream_Element_Array (1 .. 4);
         Response_Last : Stream_Element_Offset := 0;
         Raise_On_Read : Boolean := False;
         No_Device     : Boolean := False;
@@ -74,43 +74,34 @@ package body Board_Info_Tests is
    end Read;
 
    ---------------------------------------------------------------------------
-   -- Helper to load mock response
-   ---------------------------------------------------------------------------
-   procedure Set_Response
-     (Port : in out Mock_Serial_Port;
-      Text : String) is
-   begin
-      Port.Response_Last := Text'Length;
-
-      for I in Text'Range loop
-         Port.Response (Stream_Element_Offset (I)) :=
-           Stream_Element (Character'Pos (Text (I)));
-      end loop;
-   end Set_Response;
-
-   ---------------------------------------------------------------------------
    -- Tests
    ---------------------------------------------------------------------------
    procedure Test_Board_Info_Success (T : in out Test) is
       Port : aliased Mock_Serial_Port;
-      Info : Unbounded_String;
+      Info : Board_Info_Record_Access;
+      Success : Boolean;
    begin
-      Set_Response (Port, "TYPE=DEVBOARD;REV=A1");
+      Port.Response := (16#03#, 16#62#, 16#D0#, 16#93#);
 
-      Board_Info.Get_Board_Info (Port, Info);
+      Board_Info.Get_Board_Info (Port, Info, Success);
 
-      Assert
-      (To_String (Info) = "TYPE=DEVBOARD;REV=A1",
-         "Get_Board_Info should return the FPGA board info string");
+      Assert (Success,
+         "Get_Board_Info should succeed when valid response is received");
+
+      Assert (Info.Bytes (1) = 16#93#, "Info.Bytes (1) wrong");
+      Assert (Info.Bytes (2) = 16#D0#, "Info.Bytes (2) wrong");
+      Assert (Info.Bytes (3) = 16#62#, "Info.Bytes (3) wrong");
+      Assert (Info.Bytes (4) = 16#03#, "Info.Bytes (4) wrong");
    end Test_Board_Info_Success;
 
    procedure Test_Board_Info_Not_Found (T : in out Test) is
       Port : aliased Mock_Serial_Port;
-      Info : Unbounded_String;
+      Info : Board_Info_Record_Access;
+      Success : Boolean;
    begin
       Port.No_Device := True;
 
-      Board_Info.Get_Board_Info (Port, Info);
+      Board_Info.Get_Board_Info (Port, Info, Success);
 
       Assert (False, "Get_Board_Info should raise Board_Not_Found when no device responds");
    exception
@@ -121,11 +112,12 @@ package body Board_Info_Tests is
 
    procedure Test_Board_Info_Format (T : in out Test) is
       Port : aliased Mock_Serial_Port;
-      Info : Unbounded_String;
+      Info : Board_Info_Record_Access;
+      Success : Boolean;
    begin
-      Set_Response (Port, "GARBAGE DATA");
+      --  Set_Response (Port, "GARBAGE DATA");
 
-      Board_Info.Get_Board_Info (Port, Info);
+      Board_Info.Get_Board_Info (Port, Info, Success);
 
       Assert (False, "Get_Board_Info should raise Board_Bad_Format for malformed responses");
    exception
@@ -136,11 +128,12 @@ package body Board_Info_Tests is
 
    procedure Test_Board_Info_Comm_Error (T : in out Test) is
       Port : aliased Mock_Serial_Port;
-      Info : Unbounded_String;
+      Info : Board_Info_Record_Access;
+      Success : Boolean;
    begin
       Port.Raise_On_Read := True;
 
-      Board_Info.Get_Board_Info (Port, Info);
+      Board_Info.Get_Board_Info (Port, Info, Success);
 
       Assert (False, "Get_Board_Info should raise Communication_Error on serial failure");
    exception

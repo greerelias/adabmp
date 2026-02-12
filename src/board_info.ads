@@ -46,7 +46,7 @@ package Board_Info is
    Communication_Error : exception;
 
    procedure Get_Board_Info
-     (Port : in out Serial_Interface.Serial_Port'Class; Success : out Boolean);
+     (Port : in out Serial_Interface.Serial_Port'Class; Info: out Board_Info_Record_Access; Success : out Boolean);
 
    
    procedure Print_Board_Info
