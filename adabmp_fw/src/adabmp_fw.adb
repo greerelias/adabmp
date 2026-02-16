@@ -124,7 +124,7 @@ package body AdaBMP_FW is
       Info_Bytes : UInt8_Array (1 .. 4)
       with Import, Convention => Ada, Address => Info'Address;
    begin
-      JTAG_Get_Board_Info (Info);
+      JTAG.Get_Board_Info (Info);
       if Info > 0 then
          declare
             Packet : constant UInt8_Array :=
@@ -134,7 +134,7 @@ package body AdaBMP_FW is
             Tx (1 .. Packet'Length) := Packet;
             Tx (Packet'Length + 1) := 0;
             -- Send idcode Packet LSB first
-            Serial.Write (RP.Device.UDC, Tx'Address, Length);
+            USB_Serial.Write (RP.Device.UDC, Tx'Address, Length);
          end;
       else
          declare
@@ -145,7 +145,7 @@ package body AdaBMP_FW is
             Tx (1 .. Packet'Length) := Packet;
             Tx (Packet'Length + 1) := 0;
             -- Send error message
-            Serial.Write (RP.Device.UDC, Tx'Address, Length);
+            USB_Serial.Write (RP.Device.UDC, Tx'Address, Length);
          end;
       end if;
    end Send_Board_Info;
