@@ -10,5 +10,6 @@ package Commands is
    JTAG_Command        : constant Command_Id := 7;
    Get_Board_Info      : constant Command_Id := 8;
    Flash_Target        : constant Command_Id := 9;
-   JTAG_Error          : constant Command_Id := 10;
+   Configure_Target    : constant Command_Id := 10;
+   JTAG_Error          : constant Command_Id := 11;
 end Commands;

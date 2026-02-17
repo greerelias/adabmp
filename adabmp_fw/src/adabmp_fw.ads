@@ -25,7 +25,7 @@ package AdaBMP_FW is
    Tx    : HAL.UInt8_Array (1 .. 256)
    with Volatile, Export, Convention => C, External_Name => "_tx";
 
-   Rx     : HAL.UInt8_Array (1 .. 4)
+   Rx     : HAL.UInt8_Array (1 .. 64)
    with Volatile, Export, Convention => C, External_Name => "_rx";
    Length : HAL.UInt32
    with Volatile, Export, Convention => C, External_Name => "_l";
@@ -40,5 +40,8 @@ private
 
    procedure Send_Board_Info;
 
+   procedure Run_Configure_Target (Bs_Size : HAL.UInt32);
+
+   procedure Send_Ready;
    procedure Handle_Command (Command : Command_Id);
 end AdaBMP_FW;

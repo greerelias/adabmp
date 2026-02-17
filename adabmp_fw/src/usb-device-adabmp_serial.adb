@@ -39,6 +39,7 @@ with BBqueue.Buffers.Framed_M0; use BBqueue.Buffers.Framed_M0;
 
 with USB.Utils;
 with USB.Logging.Device;
+with Byte_Counter;
 
 package body USB.Device.AdaBMP_Serial is
 
@@ -347,12 +348,6 @@ package body USB.Device.AdaBMP_Serial is
       if EP = (This.Bulk_EP, EP_Out) then
 
          USB.Logging.Device.Log_Serial_Out_TC;
-         if Atomic.Unsigned_32.Load (In_Packet_Counter) + Unsigned_32 (CNT)
-           >= Max_Packets
-         then
-            return;
-         end if;
-
          --  Move OUT data to the RX queue
          declare
             WG : BBqueue.Buffers.Framed_M0.Write_Grant;
@@ -369,7 +364,7 @@ package body USB.Device.AdaBMP_Serial is
                BBqueue.Buffers.Framed_M0.Commit
                  (This.RX_Queue, WG, Framed_Count (CNT));
                AtomicU32.Add
-                 (In_Packet_Counter,
+                 (Byte_Counter.Bytes_In,
                   Unsigned_32 (CNT)); -- Increment Packet Counter
 
             end if;
@@ -555,4 +550,10 @@ package body USB.Device.AdaBMP_Serial is
       This.Write (UDC, Str'Address, Len);
    end Write;
 
+   procedure Clear_Rx (This : in out Default_Serial_Class) is
+   begin
+      BBqueue.Buffers.Framed_M0.Clear (This.RX_Queue);
+      Atomic.Unsigned_32.Store (Byte_Counter.Bytes_In, 0);
+
+   end Clear_Rx;
 end USB.Device.AdaBMP_Serial;

@@ -8,7 +8,7 @@ with RP_Interrupts;
 with Cortex_M.NVIC;
 
 with RP2040_SVD.Interrupts;
-with Packet_Manager; use Packet_Manager;
+with Byte_Counter; use Byte_Counter;
 with Atomic.Unsigned_32;
 with RP.Device;
 

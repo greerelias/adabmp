@@ -233,4 +233,20 @@ is
       end if;
    end Read_CB;
 
+   procedure Clear (This : in out Framed_Buffer) is
+      Offsets : BBqueue.Offsets_Only renames This.Buffer.Offsets;
+   begin
+      BBqueue.Atomic_Count.Store (Offsets.Write, 0);
+      BBqueue.Atomic_Count.Store (Offsets.Read, 0);
+      BBqueue.Atomic_Count.Store (Offsets.Last, 0);
+      BBqueue.Atomic_Count.Store (Offsets.Reserve, 0);
+
+      Atomic.Clear (Offsets.Read_In_Progress);
+      Atomic.Clear (Offsets.Write_In_Progress);
+
+      Offsets.Granted_Write_Size := 0;
+      Offsets.Granted_Read_Size := 0;
+
+      This.Current_Read_Size := 0;
+   end Clear;
 end BBqueue.Buffers.Framed_M0;

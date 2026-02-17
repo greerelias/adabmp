@@ -146,34 +146,34 @@ procedure Adabmp is
       Success   : Boolean;
       Msg       : Unbounded_String;
    begin
-      --  begin
-      --     declare
-      --        Found : constant String :=
-      --          Device_Discovery.Find_Device (Target_VID, Target_PID);
-      --     begin
-      --        if Found'Length > Port_Name'Length then
-      --           Put_Line ("Error: Port name too long.");
-      --           return;
-      --        end if;
-      --        Port_Name (1 .. Found'Length) := Found;
-      --        Port_Len := Found'Length;
-      --     end;
-      --  exception
-      --     when Device_Discovery.Device_Not_Found =>
-      --        Put_Line ("Error: Device not found.");
-      --        return;
-      --  end;
+      begin
+         declare
+            Found : constant String :=
+              Device_Discovery.Find_Device (Target_VID, Target_PID);
+         begin
+            if Found'Length > Port_Name'Length then
+               Put_Line ("Error: Port name too long.");
+               return;
+            end if;
+            Port_Name (1 .. Found'Length) := Found;
+            Port_Len := Found'Length;
+         end;
+      exception
+         when Device_Discovery.Device_Not_Found =>
+            Put_Line ("Error: Device not found.");
+            return;
+      end;
 
-      --  begin
-      --     Port.Open (Port_Name (1 .. Port_Len));
-      --  exception
-      --     when others =>
-      --        Put_Line ("Error: Failed to open serial port.");
-      --        return;
-      --  end;
+      begin
+         Port.Open (Port_Name (1 .. Port_Len));
+      exception
+         when others =>
+            Put_Line ("Error: Failed to open serial port.");
+            return;
+      end;
 
       Configure_Target.Load_Bitstream (Port, Path, Success);
-   --  Port.Close;
+      Port.Close;
    exception
       when E : others =>
          Put_Line ("Exception: " & Exception_Name (E));

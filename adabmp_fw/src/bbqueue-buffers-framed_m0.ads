@@ -121,6 +121,7 @@ is
    function Read_Grant_In_Progress (This : Framed_Buffer) return Boolean
    with Ghost;
 
+   procedure Clear (This : in out Framed_Buffer);
 private
 
    subtype Header_Count is Framed_Count range 0 .. Max_Frame_Header_Size;

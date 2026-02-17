@@ -9,7 +9,7 @@ package body Serial_Interface.Impl is
       Name_Id : constant GSC.Port_Name := GSC.Port_Name (Name);
    begin
       GSC.Open (Port.Port, Name_Id);
-      GSC.Set (Port.Port, Rate => GSC.B115200, Timeout => 1.0);
+      GSC.Set (Port.Port, Rate => GSC.B115200, Timeout => 5.0);
    end Open;
 
    overriding

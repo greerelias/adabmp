@@ -15,7 +15,8 @@ package JTAG is
    procedure Init;
 
    procedure Write_Blocking (Data : UInt32; Length : UInt32);
-
+   procedure Write_Last_Blocking
+     (Data : UInt32; Length : Uint32; Dir : Shift_Direction);
    procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
    procedure Read_Blocking (Data : in out UInt32; Length : UInt32);
 
@@ -26,6 +27,10 @@ package JTAG is
    procedure TAP_Reset;
 
    procedure Set_TX_Shift_Direction (Dir : Shift_Direction);
+
+   procedure Setup_Configure_Target;
+
+   procedure Finish_Configure_Target;
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;

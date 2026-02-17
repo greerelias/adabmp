@@ -30,7 +30,7 @@
 ------------------------------------------------------------------------------
 
 with BBqueue;
-with Packet_Manager; use Packet_Manager;
+with Byte_Counter; use Byte_Counter;
 with BBqueue.Buffers.Framed_M0;
 with Atomic;
 
@@ -116,6 +116,8 @@ package USB.Device.AdaBMP_Serial is
       UDC  : in out USB_Device_Controller'Class;
       Str  : String;
       Len  : out UInt32);
+
+   procedure Clear_Rx (This : in out Default_Serial_Class);
 
 private
 
