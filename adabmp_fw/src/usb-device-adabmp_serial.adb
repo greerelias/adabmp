@@ -556,4 +556,13 @@ package body USB.Device.AdaBMP_Serial is
       Atomic.Unsigned_32.Store (Byte_Counter.Bytes_In, 0);
 
    end Clear_Rx;
+
+   procedure Clear_Buffers (This : in out Default_Serial_Class) is
+   begin
+      BBqueue.Buffers.Framed_M0.Clear (This.RX_Queue);
+      Atomic.Unsigned_32.Store (Byte_Counter.Bytes_In, 0);
+
+      BBqueue.Buffers.Framed_M0.Clear (This.TX_Queue);
+      Atomic.Unsigned_32.Store (Byte_Counter.Bytes_Out, 0);
+   end Clear_Buffers;
 end USB.Device.AdaBMP_Serial;

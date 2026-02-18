@@ -118,6 +118,7 @@ package USB.Device.AdaBMP_Serial is
       Len  : out UInt32);
 
    procedure Clear_Rx (This : in out Default_Serial_Class);
+   procedure Clear_Buffers (This : in out Default_Serial_Class);
 
 private
 
