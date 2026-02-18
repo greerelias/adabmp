@@ -181,15 +181,11 @@ package body AdaBMP_FW is
    end Send_Board_Info;
 
    procedure Run_Configure_Target (Size : UInt8_Array) is
-      Bs_Size             : UInt32
+      Bs_Size : UInt32
       with Address => Size'Address;
-      Data                : UInt32_Array (1 .. 16);
+      Data    : UInt32_Array (1 .. 16);
       -- Last/Final bytes requires special handling
-      End_Bytes           : constant UInt32 := Bs_Size mod 64;
-      Final_Bytes         : constant UInt32 := End_Bytes mod 4;
-      End_Words           : UInt32 :=
-        (if End_Bytes = 0 then 16 else End_Bytes / 4);
-      Start_Bytes         : UInt32 := Bs_Size - End_Bytes;
+
       Bytes_Written_Total : UInt32 := 0;
       Bytes_Written       : UInt32 := 0;
       package AU renames Atomic.Unsigned_32;
@@ -204,64 +200,34 @@ package body AdaBMP_FW is
          null;
       end loop;
       JTAG.Setup_Configure_Target;
-      while Bytes_Written_Total < Start_Bytes loop
-         -- Exit if serial connection is closed -- does this even work??
-         exit when not USB_Serial.List_Ctrl_State.DTE_Is_Present;
+      Pico.Led.Clear;
+      while USB_Serial.List_Ctrl_State.DTE_Is_Present
+        and Bytes_Written_Total < Bs_Size
+      loop
          Length := 64;
          -- Get 64 Bytes
          USB_Serial.Read (Data'Address, Length);
          if Length > 0 then
-            for I in 1 .. 16 loop
-               JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
+            for I in 1 .. Integer (Length / 4) loop
+               Bytes_Written_Total := Bytes_Written_Total + 4;
+               if Bytes_Written_Total = Bs_Size then
+                  JTAG.Write_Last_Blocking
+                    (Reverse_Bytes (Data (1)), 32, JTAG.MSB_First);
+                  Pico.LED.Set;
+                  exit;
+               else
+                  JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
+               end if;
                Bytes_Written := Bytes_Written + 4;
             end loop;
          end if;
          if Bytes_Written >= 512 then
-            Bytes_Written_Total := Bytes_Written_Total + Bytes_Written;
             Bytes_Written := 0;
-            Pico.LED.Toggle;
             Send_Ready; -- Tell host to send next 512 bytes
 
          end if;
       end loop;
 
-      -- Write final bytes
-      if Bytes_Written_Total < Bs_Size then
-         Length := End_Bytes;
-         -- Get remaining bytes
-         USB_Serial.Read (Data'Address, Length);
-         if Length > 0 then
-            -- Write final bytes if data is word aligned
-            if Final_Bytes = 0 then
-               for I in 1 .. Integer (End_Words - 1) loop
-                  JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
-                  Bytes_Written := Bytes_Written + 4;
-               end loop;
-               JTAG.Write_Last_Blocking
-                 (Reverse_Bytes (Data (Integer (End_Words))),
-                  32,
-                  JTAG.MSB_First);
-               Bytes_Written := Bytes_Written + 4;
-            else
-               -- Write final bytes if end bytes are less than full word
-               for I in 1 .. Integer (End_Words) loop
-                  JTAG.Write_Blocking (Data (I), 32);
-                  Bytes_Written := Bytes_Written + 4;
-               end loop;
-               -- Write last word with TMS high on final bit
-               -- Should work without shifting even if less than 4 bytes
-               -- since data is shifted out MSB first
-               JTAG.Write_Last_Blocking
-                 (Data (Integer (End_Words + 1)),
-                  Final_Bytes * 8,
-                  JTAG.MSB_First); -- change to jtag write last
-               Bytes_Written := Bytes_Written + 4;
-            end if;
-         else
-            return; -- Error, should never reach
-         end if;
-      end if;
-      Pico.LED.Clear;
       JTAG.Finish_Configure_Target;
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
@@ -356,29 +322,34 @@ package body AdaBMP_FW is
                         null;
                      else
                         UART.Receive (UART_Rx, Status, 50);
-                        if Status /= Ok then
-                           if Status = Busy then
+                        case Status is
+                           when Busy        =>
                               Pico.LED.Set;
                               USB_Serial.Write
                                 (RP.Device.UDC,
                                  "Uart Rx failed with status: Busy",
                                  Length);
-                           elsif Status = Err_Error then
+
+                           when Err_Error   =>
                               USB_Serial.Write
                                 (RP.Device.UDC,
                                  "Uart Rx failed with status: Err_Error",
                                  Length);
-                           elsif Status = Err_Timeout then
+
+                           when Err_Timeout =>
                               USB_Serial.Write
                                 (RP.Device.UDC,
                                  "Uart Rx failed with status: Err_Timeout",
                                  Length);
-                           end if;
-                        else
-                           Length := 1;
-                           USB_Serial.Write
-                             (RP.Device.UDC, USB_Tx'Address, Length);
-                        end if;
+
+                           when Ok          =>
+                              Length := 1;
+                              USB_Serial.Write
+                                (RP.Device.UDC, USB_Tx'Address, Length);
+
+                           when others      =>
+                              null;
+                        end case;
                      end if;
                   end;
                end if;

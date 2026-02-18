@@ -4,10 +4,13 @@ with Interfaces;
 
 package Byte_Counter is
 
-   Bytes_In  : aliased Atomic.Unsigned_32.Instance :=
+   Bytes_In        : aliased Atomic.Unsigned_32.Instance :=
      Atomic.Unsigned_32.Init (0);
-   Bytes_Out : aliased Atomic.Unsigned_32.Instance :=
+   Bytes_Out_Total : aliased Atomic.Unsigned_32.Instance :=
      Atomic.Unsigned_32.Init (0);
-
+   Bytes_Out       : aliased Atomic.Unsigned_32.Instance :=
+     Atomic.Unsigned_32.Init (0);
    procedure Clear_Bytes_In;
+   procedure Clear_Bytes_Out;
+   procedure Clear_Bytes_Out_Total;
 end Byte_Counter;
