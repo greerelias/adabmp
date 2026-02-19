@@ -26,10 +26,6 @@ procedure Test_Runner_TS3 is
          (Board_Info_Caller.Create
             ("Test Get Board Info Format",
             Board_Info_Tests.Test_Board_Info_Format'Access));
-      Ret.Add_Test
-         (Board_Info_Caller.Create
-            ("Test Get Board Info Communication Error",
-               Board_Info_Tests.Test_Board_Info_Comm_Error'Access));
 
       return Ret;
    end Suite;

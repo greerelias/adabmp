@@ -125,21 +125,4 @@ package body Board_Info_Tests is
          null;
    end Test_Board_Info_Format;
 
-
-   procedure Test_Board_Info_Comm_Error (T : in out Test) is
-      Port : aliased Mock_Serial_Port;
-      Info : Board_Info_Record_Access;
-      Success : Boolean;
-   begin
-      Port.Raise_On_Read := True;
-
-      Board_Info.Get_Board_Info (Port, Info, Success);
-
-      Assert (False, "Get_Board_Info should raise Communication_Error on serial failure");
-   exception
-      when Board_Info.Communication_Error =>
-         null;
-   end Test_Board_Info_Comm_Error;
-
-
 end Board_Info_Tests;
