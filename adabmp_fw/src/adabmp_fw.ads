@@ -41,7 +41,7 @@ package AdaBMP_FW is
 private
    procedure Send_Programmer_Info;
 
-   procedure Start_Connection_Test;
+   procedure Run_Connection_Test;
 
    procedure Send_Board_Info;
 
@@ -49,4 +49,5 @@ private
 
    procedure Send_Ready;
    procedure Handle_Command (Cmd_Packet : HAL.UInt8_Array);
+   procedure Run_UART;
 end AdaBMP_FW;

@@ -13,4 +13,5 @@ package Commands is
    Configure_Target          : constant Command_Id := 10;
    JTAG_Error                : constant Command_Id := 11;
    Configure_Target_Complete : constant Command_Id := 12;
+   Start_UART                : constant Command_Id := 13;
 end Commands;

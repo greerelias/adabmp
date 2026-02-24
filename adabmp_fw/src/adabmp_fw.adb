@@ -1,21 +1,15 @@
 with Commands; use Commands;
-with Cortex_M.NVIC;
 with RP.Device;
 with RP.Clock;
 with RP.Uart;  use RP.Uart;
 with Pico;
 
 
-with RP.PIO;
-with RP.Reset;
 with HAL;                 use HAL;
 with RP.GPIO;
 with RP.Timer;            use RP.Timer;
-with RP.GPIO.Interrupts;
-with Cortex_M.NVIC;
 with Protocol;            use Protocol;
 with JTAG;
-with System.Width_U;
 with USB_Int;             use USB_Int;
 with Atomic.Unsigned_32;
 with Byte_Counter;        use Byte_Counter;
@@ -23,8 +17,6 @@ with Interfaces;          use Interfaces;
 with System.Machine_Code; use System.Machine_Code;
 
 package body AdaBMP_FW is
-   Disabled_Msg      : constant String := "Interrupt Disabled";
-   Enabled_Msg       : constant String := "Interrupt Enabled";
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
    Testing           : Boolean := False;
@@ -102,13 +94,16 @@ package body AdaBMP_FW is
             Send_Programmer_Info;
 
          when Test_Connection     =>
-            Start_Connection_Test;
+            Run_Connection_Test;
 
          when Get_Board_Info      =>
             Send_Board_Info;
 
          when Configure_Target    =>
             Run_Configure_Target (Get_Payload (Cmd_Packet));
+
+         when Start_UART          =>
+            Run_UART;
 
          when others              =>
             null;
@@ -124,7 +119,7 @@ package body AdaBMP_FW is
       USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Write_Len);
    end Send_Programmer_Info;
 
-   procedure Start_Connection_Test is
+   procedure Run_Connection_Test is
       Packet        : constant UInt8_Array :=
         Encode (Make_Packet (Ready, (1 .. 0 => 0)));
       Length        : UInt32 := UInt32 (Packet'Length + 1);
@@ -188,6 +183,8 @@ package body AdaBMP_FW is
 
       Bytes_Written_Total : UInt32 := 0;
       Bytes_Written       : UInt32 := 0;
+      Error_Timeout       : constant Time := 1_000_000; -- 1s
+      Last_Read           : Time;
       package AU renames Atomic.Unsigned_32;
       package BC renames Byte_Counter;
    begin
@@ -207,6 +204,7 @@ package body AdaBMP_FW is
          Length := 64;
          -- Get 64 Bytes
          USB_Serial.Read (Data'Address, Length);
+         Last_Read := Clock;
          if Length > 0 then
             for I in 1 .. Integer (Length / 4) loop
                Bytes_Written_Total := Bytes_Written_Total + 4;
@@ -226,12 +224,90 @@ package body AdaBMP_FW is
             Send_Ready; -- Tell host to send next 512 bytes
 
          end if;
+         if Clock - Last_Read > Error_Timeout then
+            return;
+         end if;
       end loop;
 
       JTAG.Finish_Configure_Target;
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
    end Run_Configure_Target;
+
+   procedure Run_UART is
+      UART      : RP.UART.UART_Port renames RP.Device.UART_0;
+      Status    : UART_Status;
+      Baud_Rate : RP.Hertz := RP.Hertz (USB_Serial.Coding.Bitrate);
+   begin
+      -- UART1 TX
+      Pico.GP16.Configure (RP.GPIO.Output, RP.GPIO.Pull_Up, RP.GPIO.UART);
+      -- UART1 RX
+      Pico.GP17.Configure (RP.GPIO.Input, RP.GPIO.Floating, RP.GPIO.UART);
+      Pico.LED.Configure (RP.GPIO.Output);
+      UART.Configure
+        (Config =>
+           (Baud      => 19200,
+            Word_Size => 8,
+            Parity    => False,
+            Stop_Bits => 1,
+            others    => <>));
+      Send_Ready;
+      loop
+         if USB_Serial.List_Ctrl_State.DTE_Is_Present then
+            Length := USB_Rx'Length;
+            USB_Serial.Read (USB_Rx'Address, Length);
+            if Length > 0 then
+               UART.Transmit (UART_Tx (1 .. Integer (Length)), Status);
+               if Status /= Ok then
+                  USB_Serial.Write (RP.Device.UDC, "Uart Tx failed", Length);
+               end if;
+            end if;
+            declare
+               Rx_Status : UART_FIFO_Status := UART.Receive_Status;
+            begin
+               if Rx_Status = Invalid then
+                  USB_Serial.Write
+                    (RP.Device.UDC,
+                     "Uart Rx failed with FIFO invalid",
+                     Length);
+               elsif Rx_Status = Empty then
+                  null;
+               else
+                  UART.Receive (UART_Rx, Status, 50);
+                  case Status is
+                     --  when Busy        =>
+                     --     Pico.LED.Set;
+                     --     USB_Serial.Write
+                     --       (RP.Device.UDC,
+                     --        "Uart Rx failed with status: Busy",
+                     --        Length);
+
+                     --  when Err_Error   =>
+                     --     USB_Serial.Write
+                     --       (RP.Device.UDC,
+                     --        "Uart Rx failed with status: Err_Error",
+                     --        Length);
+
+                     --  when Err_Timeout =>
+                     --     USB_Serial.Write
+                     --       (RP.Device.UDC,
+                     --        "Uart Rx failed with status: Err_Timeout",
+                     --        Length);
+
+                     when Ok     =>
+                        Length := 1;
+                        USB_Serial.Write
+                          (RP.Device.UDC, USB_Tx'Address, Length);
+
+                     when others =>
+                        null;
+
+                  end case;
+               end if;
+            end;
+         end if;
+      end loop;
+   end Run_UART;
 
    procedure Send_Ready is
       Packet : constant UInt8_Array :=
@@ -244,26 +320,11 @@ package body AdaBMP_FW is
    end Send_Ready;
 
    procedure Run is
-      UART      : RP.UART.UART_Port renames RP.Device.UART_0;
-      Status    : UART_Status;
-      Is_Packet : Boolean := False;
    begin
       RP.Clock.Initialize (Pico.XOSC_Frequency);
       RP.Clock.Enable (RP.Clock.PERI);
       RP.Device.Timer.Enable;
       RP.GPIO.Enable; -- Seems to be needed to enable USB
-      -- UART1 TX
-      Pico.GP16.Configure (RP.GPIO.Output, RP.GPIO.Pull_Up, RP.GPIO.UART);
-      -- UART1 RX
-      Pico.GP17.Configure (RP.GPIO.Input, RP.GPIO.Floating, RP.GPIO.UART);
-      Pico.LED.Configure (RP.GPIO.Output);
-      UART.Configure
-        (Config =>
-           (Baud      => 19_200,
-            Word_Size => 8,
-            Parity    => False,
-            Stop_Bits => 1,
-            others    => <>));
 
       USB_Int.Initialize;
 
@@ -284,16 +345,12 @@ package body AdaBMP_FW is
             if USB_Serial.List_Ctrl_State.DTE_Is_Present then
                Length := USB_Rx'Length;
                USB_Serial.Read (USB_Rx'Address, Length);
-               if Length > 2
-                 and then USB_Rx (2) = Start_Of_Frame
-                 and then USB_Rx (Integer (Length)) = 0
-               then
+               if Length > 0 then
                   declare
                      Packet : UInt8_Array :=
                        Decode (USB_Rx (1 .. Integer (Length - 1)));
                   begin
                      if Is_Valid (Packet) then
-                        Is_Packet := True;
                         Handle_Command (Packet);
                      end if;
                   exception
@@ -302,59 +359,7 @@ package body AdaBMP_FW is
                         null;
                   end;
                end if;
-               if not Is_Packet then
-                  if Length > 0 then
-                     UART.Transmit (UART_Tx (1 .. Integer (Length)), Status);
-                     if Status /= Ok then
-                        USB_Serial.Write
-                          (RP.Device.UDC, "Uart Tx failed", Length);
-                     end if;
-                  end if;
-                  declare
-                     Rx_Status : UART_FIFO_Status := UART.Receive_Status;
-                  begin
-                     if Rx_Status = Invalid then
-                        USB_Serial.Write
-                          (RP.Device.UDC,
-                           "Uart Rx failed with FIFO invalid",
-                           Length);
-                     elsif Rx_Status = Empty then
-                        null;
-                     else
-                        UART.Receive (UART_Rx, Status, 50);
-                        case Status is
-                           when Busy        =>
-                              Pico.LED.Set;
-                              USB_Serial.Write
-                                (RP.Device.UDC,
-                                 "Uart Rx failed with status: Busy",
-                                 Length);
-
-                           when Err_Error   =>
-                              USB_Serial.Write
-                                (RP.Device.UDC,
-                                 "Uart Rx failed with status: Err_Error",
-                                 Length);
-
-                           when Err_Timeout =>
-                              USB_Serial.Write
-                                (RP.Device.UDC,
-                                 "Uart Rx failed with status: Err_Timeout",
-                                 Length);
-
-                           when Ok          =>
-                              Length := 1;
-                              USB_Serial.Write
-                                (RP.Device.UDC, USB_Tx'Address, Length);
-
-                           when others      =>
-                              null;
-                        end case;
-                     end if;
-                  end;
-               end if;
             end if;
-            Is_Packet := False;
          end loop;
       end if;
    end Run;
