@@ -17,10 +17,10 @@ with Interfaces;          use Interfaces;
 with System.Machine_Code; use System.Machine_Code;
 
 package body AdaBMP_FW is
+   -- For testing w/ external button
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
    Testing           : Boolean := False;
-   Disabled          : Boolean := False;
 
    Device_Info_Pkt : aliased constant String :=
      Character'Val (170) & Character'Val (2) & "AdaBMP v0.1.0";
@@ -40,6 +40,7 @@ package body AdaBMP_FW is
       return Result;
    end Reverse_Bytes;
 
+   -- Only used for testing with external button
    procedure GPIO_Isr_Handler
      (Pin : RP.GPIO.GPIO_Pin; Trigger : RP.GPIO.Interrupt_Triggers)
    is
@@ -51,38 +52,6 @@ package body AdaBMP_FW is
       if (Clock - Last_Button_Press) > Debounce_Time then
          null;
          Last_Button_Press := Clock;
-         --  if Disabled then
-         --     Cortex_M.NVIC.Enable_Interrupt (5);
-         --     Length := Enabled_Msg'Length;
-         --     USB_Serial.Write (RP.Device.UDC, Enabled_Msg'Address, Length);
-         --     Disabled := False;
-         --     Pico.LED.Set;
-         --  else
-         --     Cortex_M.NVIC.Disable_Interrupt (5);
-         --     Length := Disabled_Msg'Length;
-         --     USB_Serial.Write (RP.Device.UDC, Disabled_Msg'Address, Length);
-         --     Disabled := True;
-         --     Pico.LED.Clear;
-         --  end if;
-         --  JTAG.Set_TMS (False);
-         --  JTAG.Write_Last_Blocking
-         --    (Data => 16#B#, Length => 6, Dir => JTAG.MSB_First);
-         JTAG.Write_Blocking (Test_Word, 32);
-         Test_Word := Reverse_Bytes ((Test_Word));
-         JTAG.Write_Last_Blocking (Test_Word, 32, JTAG.MSB_First);
-         Pico.LED.Toggle;
-
-      --  if Serial.List_Ctrl_State.DTE_Is_Present then
-      --     Length := Disabled_Msg'Length;
-      --     Serial.Write (RP.Device.UDC, Disabled_Msg'Address, Length);
-      --  end if;
-      --  if Atomic.Unsigned_32.Load (In_Packet_Counter) > 0 then
-      --     Length := Rx'Length;
-      --     USB_Serial.Read (Rx'Address, Length);
-      --     Atomic.Unsigned_32.Sub (In_Packet_Counter, Unsigned_32 (Length));
-      --     USB_Stack.Poll;
-      --  end if;
-
       end if;
    end GPIO_Isr_Handler;
 
@@ -176,11 +145,9 @@ package body AdaBMP_FW is
    end Send_Board_Info;
 
    procedure Run_Configure_Target (Size : UInt8_Array) is
-      Bs_Size : UInt32
+      Bs_Size             : UInt32
       with Address => Size'Address;
-      Data    : UInt32_Array (1 .. 16);
-      -- Last/Final bytes requires special handling
-
+      Data                : UInt32_Array (1 .. 16);
       Bytes_Written_Total : UInt32 := 0;
       Bytes_Written       : UInt32 := 0;
       Error_Timeout       : constant Time := 1_000_000; -- 1s
@@ -202,13 +169,14 @@ package body AdaBMP_FW is
         and Bytes_Written_Total < Bs_Size
       loop
          Length := 64;
-         -- Get 64 Bytes
+         -- Get up to 64 Bytes
          USB_Serial.Read (Data'Address, Length);
          Last_Read := Clock;
          if Length > 0 then
             for I in 1 .. Integer (Length / 4) loop
                Bytes_Written_Total := Bytes_Written_Total + 4;
                if Bytes_Written_Total = Bs_Size then
+                  -- Last word requires special handling
                   JTAG.Write_Last_Blocking
                     (Reverse_Bytes (Data (1)), 32, JTAG.MSB_First);
                   Pico.LED.Set;
@@ -239,6 +207,8 @@ package body AdaBMP_FW is
       Status    : UART_Status;
       Baud_Rate : RP.Hertz := RP.Hertz (USB_Serial.Coding.Bitrate);
    begin
+      -- Switch to polling so USB sends nak during UART tx
+      USB_Int.Disable;
       -- UART1 TX
       Pico.GP16.Configure (RP.GPIO.Output, RP.GPIO.Pull_Up, RP.GPIO.UART);
       -- UART1 RX
@@ -253,6 +223,7 @@ package body AdaBMP_FW is
             others    => <>));
       Send_Ready;
       loop
+         USB_Stack.Poll;
          if USB_Serial.List_Ctrl_State.DTE_Is_Present then
             Length := USB_Rx'Length;
             USB_Serial.Read (USB_Rx'Address, Length);
@@ -274,35 +245,10 @@ package body AdaBMP_FW is
                   null;
                else
                   UART.Receive (UART_Rx, Status, 50);
-                  case Status is
-                     --  when Busy        =>
-                     --     Pico.LED.Set;
-                     --     USB_Serial.Write
-                     --       (RP.Device.UDC,
-                     --        "Uart Rx failed with status: Busy",
-                     --        Length);
-
-                     --  when Err_Error   =>
-                     --     USB_Serial.Write
-                     --       (RP.Device.UDC,
-                     --        "Uart Rx failed with status: Err_Error",
-                     --        Length);
-
-                     --  when Err_Timeout =>
-                     --     USB_Serial.Write
-                     --       (RP.Device.UDC,
-                     --        "Uart Rx failed with status: Err_Timeout",
-                     --        Length);
-
-                     when Ok     =>
-                        Length := 1;
-                        USB_Serial.Write
-                          (RP.Device.UDC, USB_Tx'Address, Length);
-
-                     when others =>
-                        null;
-
-                  end case;
+                  if Status = Ok then
+                     Length := 1;
+                     USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Length);
+                  end if;
                end if;
             end;
          end if;
@@ -332,6 +278,7 @@ package body AdaBMP_FW is
 
       if Testing then
          -- Enable external switch for testing
+         -- need to switch to different GPIO if used
          -- GP16 now used of uart so revise if using
          --  Pico.GP16.Configure (RP.GPIO.Input, RP.GPIO.Pull_Up);
          --  RP.GPIO.Interrupts.Attach_Handler
@@ -355,7 +302,7 @@ package body AdaBMP_FW is
                      end if;
                   exception
                      when Decode_Error =>
-                        -- If decode error not a packet, should be raw serial data
+                        -- Error in packet encoding
                         null;
                   end;
                end if;

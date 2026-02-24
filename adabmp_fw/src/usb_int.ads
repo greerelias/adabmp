@@ -21,5 +21,7 @@ package USB_Int is
    USB_Event : aliased Atomic.Flag := Atomic.Init (False);
 
    procedure Initialize;
+   procedure Enable;
+   procedure Disable;
 
 end USB_Int;
