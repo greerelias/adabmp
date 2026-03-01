@@ -2,6 +2,7 @@ with Ada.Text_IO;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Strings.Unbounded;
 with Board_Info;
+with Board_Info_Printer;
 with Configure_Target;
 with Serial_Interface.Impl;
 with Device_Discovery;
@@ -122,6 +123,7 @@ procedure Adabmp is
       end;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
+      Board_Info_Printer.Print_Board_Info(Info);
 
       Port.Close;
    exception

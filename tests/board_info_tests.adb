@@ -3,6 +3,7 @@ with Serial_Interface;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Streams;           use Ada.Streams;
 with AUnit.Assertions;      use AUnit.Assertions;
+with Board_Info_Printer;
 
 package body Board_Info_Tests is
 
@@ -84,6 +85,8 @@ package body Board_Info_Tests is
       Port.Response_Last := 8;
       Port.Read_Pos := 1;
       Board_Info.Get_Board_Info (Port, Info, Success);
+
+      Board_Info_Printer.Print_Board_Info(Info);
 
       Assert (Success,
          "Get_Board_Info should succeed when valid response is received");
