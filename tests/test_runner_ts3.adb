@@ -18,10 +18,10 @@ procedure Test_Runner_TS3 is
          (Board_Info_Caller.Create
             ("Test Get Board Info Success",
             Board_Info_Tests.Test_Board_Info_Success'Access));
-      --  Ret.Add_Test
-      --     (Board_Info_Caller.Create
-      --        ("Test Get Board Info Not Found",
-      --        Board_Info_Tests.Test_Board_Info_Not_Found'Access));
+      Ret.Add_Test
+         (Board_Info_Caller.Create
+            ("Test Get Board Info Not Found",
+            Board_Info_Tests.Test_Board_Info_Not_Found'Access));
       --  Ret.Add_Test
       --     (Board_Info_Caller.Create
       --        ("Test Get Board Info Format",

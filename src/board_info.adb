@@ -48,10 +48,12 @@ package body Board_Info is
             end if;
          end;
       else
-         Success := False;
+         raise Board_Not_Found;
       end if;
 
    exception
+      when Board_Not_Found =>
+         raise;
       when E : others =>
          Put_Line ("Exception: " & Exception_Name (E));
          Put_Line ("Message:   " & Exception_Message (E));

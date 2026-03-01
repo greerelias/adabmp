@@ -1,6 +1,5 @@
 with Board_Info;            use Board_Info;
 with Serial_Interface;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Streams;           use Ada.Streams;
 with AUnit.Assertions;      use AUnit.Assertions;
 with Board_Info_Printer;
@@ -82,7 +81,6 @@ package body Board_Info_Tests is
       Success : Boolean;
    begin
       Port.Response (1 .. 8) := (16#07#, 16#AA#, 16#08#, 16#03#, 16#62#, 16#D0#, 16#93#, 16#00#);
-      Port.Response (1 .. 8) := (16#07#, 16#AA#, 16#08#, 16#93#, 16#D0#, 16#62#, 16#03#, 16#00#);
       Port.Response_Last := 8;
       Port.Read_Pos := 1;
       Board_Info.Get_Board_Info (Port, Info, Success);
