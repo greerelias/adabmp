@@ -32,7 +32,7 @@ package body JTAG is
          Wrap        => JTAG.PIO.Jtag_Tdo_Wrap);
       -- 100KHz: 4 instructions in loop; 1 clock each instruction
       -- TCK = Clk_F/4
-      Set_Clock_Frequency (Config, 400_000);
+      Set_Clock_Frequency (Config, 4_000_000);
 
       P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
       P.Set_Pin_Direction (SM, TCK.Pin, Output);
@@ -77,6 +77,21 @@ package body JTAG is
       end if;
    end Write_Blocking;
 
+   procedure Write_Last_Blocking
+     (Data : UInt32; Length : UInt32; Dir : Shift_Direction)
+   is
+      Len      : constant Integer := Integer (Length - 1);
+      Last_Bit : constant UInt32 :=
+        UInt32
+          (if Dir = MSB_First
+           then Shift_Left (Data, Len)
+           else Shift_Right (Data, Len));
+   begin
+      Write_Blocking (Data, Length - 1);
+      Set_TMS (True);
+      Write_Blocking (Last_bit, 1);
+   end Write_Last_Blocking;
+
    procedure Read_Blocking (Data : in out UInt32; Length : UInt32) is
       Len : constant UInt32 := Length - 1;
    begin
@@ -118,6 +133,7 @@ package body JTAG is
       Strobe_Blocking (1); --Run-Test-Idle
    end Get_Board_Info;
 
+   -- Strobe up to 32 clocks
    procedure Strobe_Blocking (Count : UInt32) is
       Cnt   : constant UInt32 := Count - 1;
       Input : UInt32;
@@ -142,7 +158,7 @@ package body JTAG is
       end if;
    end Set_TMS;
 
-   -- Puts TAP in Run-Test/Idle state
+   -- Puts TAP in Test Logic Reset
    procedure TAP_Reset is
    begin
       Set_TMS (True);
@@ -164,4 +180,57 @@ package body JTAG is
       P.Clear_FIFOs (SM);
    end Set_TX_Shift_Direction;
 
+   procedure Setup_Configure_Target is
+      JProgram : UInt32 := 16#B#;
+      CFG_IN   : UInt32 := 16#5#;
+   begin
+      Set_TX_Shift_Direction (LSB_First);
+      TAP_Reset;
+      Set_TMS (False);
+      Strobe_Blocking (1); -- RTI
+      Set_TMS (True);
+      Strobe_Blocking (2); -- Select-IR
+      Set_TMS (False);
+      Strobe_Blocking (2); -- Shift-IR
+      Write_Last_Blocking (JProgram, 6, LSB_First); -- Write JProgram
+      TAP_Reset;
+      Set_TMS (False);
+      -- Clock for atleast 10ms in RTI
+      for I in 1 .. 32 loop
+         Strobe_Blocking (32);
+      end loop;
+      Set_TMS (True);
+      Strobe_Blocking (2); -- Select-IR
+      Set_TMS (False);
+      Strobe_Blocking (2); -- Shift-IR
+      Write_Last_Blocking (CFG_IN, 6, LSB_First); -- Write CFG_IN
+      Set_TMS (True);
+      Strobe_Blocking (2); -- Select-DR
+      Set_TMS (False);
+      Strobe_Blocking (2); -- Shift-DR
+      Set_TX_Shift_Direction (MSB_First);
+      -- FPGA is set up to receive bitstream
+   end Setup_Configure_Target;
+
+   procedure Finish_Configure_Target is
+      JStart : UInt32 := 16#C#;
+   begin
+      -- Bitstream is finished writing TMS should be high
+      Set_TX_Shift_Direction (LSB_First);
+      Strobe_Blocking (1); -- Update-DR
+      Set_TMS (False);
+      Strobe_Blocking (1); -- RTI
+      Set_TMS (True);
+      Strobe_Blocking (2); -- Select-IR
+      Set_TMS (False);
+      Strobe_Blocking (2); -- Shift-IR
+      Write_Last_Blocking (JStart, 6, LSB_First); -- Write JStart
+      Strobe_Blocking (1); -- Update-IR
+      Set_TMS (False);
+      -- Clock for atleast 2ms in RTI
+      for I in 1 .. 7 loop
+         Strobe_Blocking (32);
+      end loop;
+      TAP_Reset;
+   end Finish_Configure_Target;
 end JTAG;

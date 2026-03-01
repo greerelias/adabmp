@@ -8,7 +8,7 @@ with RP_Interrupts;
 with Cortex_M.NVIC;
 
 with RP2040_SVD.Interrupts;
-with Packet_Manager; use Packet_Manager;
+with Byte_Counter; use Byte_Counter;
 with Atomic.Unsigned_32;
 with RP.Device;
 
@@ -67,4 +67,12 @@ package body USB_Int is
 
    end Initialize;
 
+   procedure Enable is
+   begin
+      Cortex_M.NVIC.Enable_Interrupt (Int_ID);
+   end Enable;
+   procedure Disable is
+   begin
+      Cortex_M.NVIC.Disable_Interrupt (Int_ID);
+   end Disable;
 end USB_Int;

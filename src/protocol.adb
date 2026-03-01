@@ -169,4 +169,14 @@ package body Protocol is
    end Receive_Ready_Packet;
 
 
+   procedure Send_Command_Packet
+     (Port    : in out Serial_Interface.Serial_Port'Class;
+      Command : Packet_Formatter.Command_Id)
+   is
+      Command_Packet : Stream_Element_Array :=
+        Make_Packet (Command, (1 .. 0 => 0));
+   begin
+      Send_Packet (Port, Command_Packet);
+
+   end Send_Command_Packet;
 end Protocol;

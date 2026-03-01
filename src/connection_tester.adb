@@ -29,7 +29,7 @@ package body Connection_Tester is
       begin
          Protocol.Send_Packet (Port, Packet);
       end;
-
+      delay (0.002);
       Protocol.Receive_Packet (Port, Rx_Buffer, Rx_Last);
 
       if Rx_Last >= Rx_Buffer'First then

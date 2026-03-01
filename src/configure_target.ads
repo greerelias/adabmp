@@ -5,5 +5,6 @@ package Configure_Target is
    procedure Load_Bitstream
      (Port    : in out Serial_Interface.Serial_Port'Class;
       Path    : in String;
-      Success : in out Boolean);
+      Success : in out Boolean;
+      Verbose : Boolean := False);
 end Configure_Target;

@@ -1,4 +1,5 @@
 with Ada.Streams; use Ada.Streams;
+with Packet_Formatter;
 with Serial_Interface;
 
 package Protocol is
@@ -27,4 +28,8 @@ package Protocol is
 
    function Receive_Ready_Packet
      (Port : in out Serial_Interface.Serial_Port'Class) return Boolean;
+
+   procedure Send_Command_Packet
+     (Port    : in out Serial_Interface.Serial_Port'Class;
+      Command : Packet_Formatter.Command_Id);
 end Protocol;

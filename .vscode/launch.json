@@ -7,7 +7,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/adabmp",
             "args": [
-                "-ct bad_bs.bit"
+                "-ct",
+                "${workspaceFolder}/bin/blinky.bit"
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "ada: Build current project",
