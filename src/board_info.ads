@@ -1,10 +1,7 @@
 with Ada.Streams;
 with Serial_Interface;
-with Ada.Strings.Unbounded;
 with Interfaces;       use Interfaces;
-with Packet_Formatter; use Packet_Formatter;
 with Ada.Streams;      use Ada.Streams;
-with Commands;
 
 package Board_Info is
 
@@ -47,10 +44,5 @@ package Board_Info is
 
    procedure Get_Board_Info
      (Port : in out Serial_Interface.Serial_Port'Class; Info: out Board_Info_Record_Access; Success : out Boolean);
-
-   
-   procedure Print_Board_Info
-      (Info : in Board_Info_Record_Access);
-
 
 end Board_Info;
