@@ -82,11 +82,10 @@ package body Board_Info_Tests is
       Success : Boolean;
    begin
       Port.Response (1 .. 8) := (16#07#, 16#AA#, 16#08#, 16#03#, 16#62#, 16#D0#, 16#93#, 16#00#);
+      Port.Response (1 .. 8) := (16#07#, 16#AA#, 16#08#, 16#93#, 16#D0#, 16#62#, 16#03#, 16#00#);
       Port.Response_Last := 8;
       Port.Read_Pos := 1;
       Board_Info.Get_Board_Info (Port, Info, Success);
-
-      Board_Info_Printer.Print_Board_Info(Info);
 
       Assert (Success,
          "Get_Board_Info should succeed when valid response is received");
