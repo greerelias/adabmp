@@ -11,8 +11,9 @@ package body Board_Info_Tests is
    ---------------------------------------------------------------------------
    type Mock_Serial_Port is
      new Serial_Interface.Serial_Port with record
-        Response      : Stream_Element_Array (1 .. 4);
+        Response      : Stream_Element_Array (1 .. 32);
         Response_Last : Stream_Element_Offset := 0;
+        Read_Pos      : Stream_Element_Offset := 1;
         Raise_On_Read : Boolean := False;
         No_Device     : Boolean := False;
      end record;
@@ -56,20 +57,18 @@ package body Board_Info_Tests is
    end Write;
 
    procedure Read
-     (Port   : in out Mock_Serial_Port;
+   (Port   : in out Mock_Serial_Port;
       Buffer : in out Stream_Element_Array;
       Last   : out Stream_Element_Offset) is
    begin
       if Port.Raise_On_Read then
          raise Constraint_Error;
-      elsif Port.No_Device then
-         Last := 0;
+      elsif Port.No_Device or else Port.Read_Pos > Port.Response_Last then
+         Last := Buffer'First - 1;
       else
-         Buffer (Buffer'First ..
-                 Buffer'First + Port.Response_Last - 1) :=
-           Port.Response (1 .. Port.Response_Last);
-
-         Last := Buffer'First + Port.Response_Last - 1;
+         Buffer (Buffer'First) := Port.Response (Port.Read_Pos);
+         Last := Buffer'First;
+         Port.Read_Pos := Port.Read_Pos + 1;
       end if;
    end Read;
 
@@ -81,8 +80,9 @@ package body Board_Info_Tests is
       Info : Board_Info_Record_Access;
       Success : Boolean;
    begin
-      Port.Response := (16#03#, 16#62#, 16#D0#, 16#93#);
-
+      Port.Response (1 .. 8) := (16#07#, 16#AA#, 16#08#, 16#03#, 16#62#, 16#D0#, 16#93#, 16#00#);
+      Port.Response_Last := 8;
+      Port.Read_Pos := 1;
       Board_Info.Get_Board_Info (Port, Info, Success);
 
       Assert (Success,
