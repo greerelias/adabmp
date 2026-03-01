@@ -115,7 +115,9 @@ package body Board_Info_Tests is
       Info : Board_Info_Record_Access;
       Success : Boolean;
    begin
-      --  Set_Response (Port, "GARBAGE DATA");
+      Port.Response (1 .. 3) := (16#02#, 16#FF#, 16#00#);
+      Port.Response_Last := 3;
+      Port.Read_Pos      := 1;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
 

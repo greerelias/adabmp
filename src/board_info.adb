@@ -44,7 +44,7 @@ package body Board_Info is
                   Success := True;
                end;
             else
-               Success := False;
+               raise Board_Bad_Format;
             end if;
          end;
       else
@@ -53,6 +53,8 @@ package body Board_Info is
 
    exception
       when Board_Not_Found =>
+         raise;
+      when Board_Bad_Format =>
          raise;
       when E : others =>
          Put_Line ("Exception: " & Exception_Name (E));
