@@ -2,7 +2,6 @@ with Board_Info;            use Board_Info;
 with Serial_Interface;
 with Ada.Streams;           use Ada.Streams;
 with AUnit.Assertions;      use AUnit.Assertions;
-with Board_Info_Printer;
 
 package body Board_Info_Tests is
 

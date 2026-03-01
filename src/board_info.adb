@@ -56,6 +56,8 @@ package body Board_Info is
          raise;
       when Board_Bad_Format =>
          raise;
+      when Constraint_Error =>
+         raise Communication_Error;
       when E : others =>
          Put_Line ("Exception: " & Exception_Name (E));
          Put_Line ("Message:   " & Exception_Message (E));
