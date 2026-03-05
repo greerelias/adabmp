@@ -9,8 +9,8 @@ with Protocol;
 with Serial_Interface.Impl;
 with Device_Discovery;
 with Connection_Tester;
-
-with Ada.Exceptions; use Ada.Exceptions;
+with UART;
+with Ada.Exceptions;   use Ada.Exceptions;
 
 procedure Adabmp is
    use Ada.Text_IO;
@@ -125,7 +125,7 @@ procedure Adabmp is
       end;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
-      Board_Info_Printer.Print_Board_Info(Info);
+      Board_Info_Printer.Print_Board_Info (Info);
 
       Port.Close;
    exception
@@ -197,6 +197,7 @@ procedure Adabmp is
       Port_Name : String (1 .. 100);
       Port_Len  : Natural := 0;
       Port      : Serial_Interface.Impl.Com_Port;
+      Success   : Boolean := False;
    begin
       -- TODO: move getting port name/opening port into their own functions
       -- this code is repeated multiple times
@@ -226,9 +227,8 @@ procedure Adabmp is
             Put_Line ("Error: Failed to open serial port.");
             return;
       end;
-      Protocol.Send_Command_Packet (Port, Commands.Start_UART);
-      delay (0.002);
-      if Protocol.Receive_Ready_Packet (Port) then
+      UART.Start_UART (Port, Success);
+      if Success then
          Put_Line ("UART Ready on: " & Port_Name (1 .. Port_Len));
       else
          Put_Line ("Error: Failed start UART");

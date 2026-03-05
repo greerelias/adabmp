@@ -61,7 +61,6 @@ package body Connection_Tester_Tests is
 
       Cmd : constant Command_Id := Commands.Get_Programmer_Info;
    begin
-      Port.Enabled := False;
 
       for I in Expected_Info'Range loop
          Payload (Stream_Element_Offset (I - Expected_Info'First + 1)) :=
@@ -101,7 +100,6 @@ package body Connection_Tester_Tests is
         Protocol.Encode (Raw_Packet);
       Input      : Stream_Element_Array (1 .. Encoded'Length + 1);
    begin
-      Port.Enabled := False;
 
       Input (1 .. Encoded'Length) := Encoded;
       Input (Input'Last) := 0;

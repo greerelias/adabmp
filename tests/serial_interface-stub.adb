@@ -50,6 +50,8 @@ package body Serial_Interface.Stub is
                            end if;
 
                         when Configure_Target =>
+                           -- TODO: update and add bad response logic
+                           -- and bad response test
                            declare
                               Payload     : Stream_Element_Array :=
                                 Get_Payload (Decoded);
@@ -61,6 +63,10 @@ package body Serial_Interface.Stub is
                                 Serial_Interface.Stub.Configuring_Target;
                               Send_Ready_Packet (Port);
                            end;
+
+                        when Start_UART       =>
+                           -- Logic handled in UART_Tests.adb
+                           null;
 
                         when others           =>
                            null;
@@ -110,7 +116,7 @@ package body Serial_Interface.Stub is
       Available : Stream_Element_Offset;
       To_Read   : Stream_Element_Offset;
    begin
-      if Port.Read_Index > Port.Read_Count then
+      if not Port.Enabled or Port.Read_Index > Port.Read_Count then
          Last := Buffer'First - 1; -- No data
          return;
       end if;
