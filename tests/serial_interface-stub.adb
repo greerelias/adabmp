@@ -35,12 +35,12 @@ package body Serial_Interface.Stub is
                begin
                   if Is_Valid (Decoded) then
                      case Get_Command (Decoded) is
-                        when Test_Connection  =>
+                        when Test_Connection                  =>
                            Port.State :=
                              Serial_Interface.Stub.Testing_Connection;
                            Send_Ready_Packet (Port);
 
-                        when Get_Board_Info   =>
+                        when Get_Board_Info                   =>
                            if Port.Board_Info_Length > 0 then
                               Port.Read_Stream (1 .. Port.Board_Info_Length) :=
                                 Port.Board_Info_Response
@@ -49,7 +49,7 @@ package body Serial_Interface.Stub is
                               Port.Read_Index := 1;
                            end if;
 
-                        when Configure_Target =>
+                        when Configure_Target or Flash_Target =>
                            -- TODO: update and add bad response logic
                            -- and bad response test
                            declare
@@ -64,11 +64,11 @@ package body Serial_Interface.Stub is
                               Send_Ready_Packet (Port);
                            end;
 
-                        when Start_UART       =>
+                        when Start_UART                       =>
                            -- Logic handled in UART_Tests.adb
                            null;
 
-                        when others           =>
+                        when others                           =>
                            null;
                      end case;
                   end if;

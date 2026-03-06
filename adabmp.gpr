@@ -11,7 +11,8 @@ project Adabmp is
                  "test_runner_ts2.adb", 
                  "test_runner_ts3.adb", 
                  "test_runner_ts4.adb", 
-                 "test_runner_ts5.adb");
+                 "test_runner_ts5.adb",
+                 "test_runner_ts6.adb");
 
    package Compiler is
       for Default_Switches ("Ada") use Adabmp_Config.Ada_Compiler_Switches;
