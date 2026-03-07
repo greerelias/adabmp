@@ -35,12 +35,12 @@ package body Serial_Interface.Stub is
                begin
                   if Is_Valid (Decoded) then
                      case Get_Command (Decoded) is
-                        when Test_Connection                  =>
+                        when Test_Connection  =>
                            Port.State :=
                              Serial_Interface.Stub.Testing_Connection;
                            Send_Ready_Packet (Port);
 
-                        when Get_Board_Info                   =>
+                        when Get_Board_Info   =>
                            if Port.Board_Info_Length > 0 then
                               Port.Read_Stream (1 .. Port.Board_Info_Length) :=
                                 Port.Board_Info_Response
@@ -49,7 +49,7 @@ package body Serial_Interface.Stub is
                               Port.Read_Index := 1;
                            end if;
 
-                        when Configure_Target or Flash_Target =>
+                        when Configure_Target =>
                            -- TODO: update and add bad response logic
                            -- and bad response test
                            declare
@@ -58,20 +58,50 @@ package body Serial_Interface.Stub is
                               Data_Length : Natural
                               with Address => Payload'Address;
                            begin
-                              Port.Bitstream_Size := Data_Length;
+                              Port.Data_Size := Data_Length;
                               Port.State :=
                                 Serial_Interface.Stub.Configuring_Target;
                               Send_Ready_Packet (Port);
                            end;
 
-                        when Start_UART                       =>
+                        when Flash_Target     =>
+                           declare
+                              Payload          :
+                                constant Stream_Element_Array :=
+                                  Get_Payload (Decoded);
+                              Data_Length_Arr  : Stream_Element_Array (1 .. 4);
+                              Data_Length      : Natural
+                              with Address => Data_Length_Arr'Address;
+                              Base_Address_Arr : Stream_Element_Array (1 .. 4);
+                              Base_Address     : Natural
+                              with Address => Base_Address_Arr'Address;
+                           begin
+                              if Payload'Length >= 8 then
+                                 Data_Length_Arr :=
+                                   Payload
+                                     (Payload'First .. Payload'First + 3);
+                                 Base_Address_Arr :=
+                                   Payload
+                                     (Payload'First + 4 .. Payload'First + 7);
+                                 Port.Data_Size := Data_Length;
+                                 Port.State :=
+                                   Serial_Interface.Stub.Flashing_Target;
+                                 Send_Ready_Packet (Port);
+                              end if;
+                           end;
+
+                        when Start_UART       =>
                            -- Logic handled in UART_Tests.adb
                            null;
 
-                        when others                           =>
+                        when others           =>
                            null;
                      end case;
                   end if;
+               exception
+                  when E : Protocol.Decode_Error =>
+                     -- ignore
+                     null;
                end;
 
             when Testing_Connection =>
@@ -89,15 +119,37 @@ package body Serial_Interface.Stub is
             when Configuring_Target =>
                -- Mock failure during write
                if Port.Fail_During_Write
-                 and then Port.Write_Count > Port.Bitstream_Size / 2
+                 and then Port.Write_Count > Port.Data_Size / 2
                then
-                  Port.State := Idle;
-               elsif Port.Write_Count >= Port.Bitstream_Size then
-                  -- Write complete
-                  Port.Write_Count := 0;
                   Port.State := Idle;
                else
                   Port.Write_Count := Port.Write_Count + Data'Length;
+                  if Port.Write_Count >= Port.Data_Size then
+                     -- Write complete
+                     --  Send_Command_Packet (Port, Configure_Target_Complete);
+                     Port.Write_Count := 0;
+                     Port.State := Idle;
+                     return;
+                  end if;
+                  -- Got data, tell host to send more
+                  Send_Ready_Packet (Port);
+               end if;
+
+            when Flashing_Target    =>
+               -- Mock failure during flash
+               if Port.Fail_During_Write
+                 and then Port.Write_Count > Port.Data_Size / 2
+               then
+                  Port.State := Idle;
+               else
+                  Port.Write_Count := Port.Write_Count + Data'Length;
+                  if Port.Write_Count >= Port.Data_Size then
+                     -- Write complete
+                     --  Send_Command_Packet (Port, Configure_Target_Complete);
+                     Port.Write_Count := 0;
+                     Port.State := Idle;
+                     return;
+                  end if;
                   -- Got data, tell host to send more
                   Send_Ready_Packet (Port);
                end if;

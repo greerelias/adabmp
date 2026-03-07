@@ -190,9 +190,9 @@ package body Flash_Target is
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
          TIO.Put_Line ("Failure: File " & Path & " not found.");
-      when E : Format_Error =>
-         TIO.Put_Line (Ada.Exceptions.Exception_Message (E));
-      when E : others =>
+      when Fmt_Err : Format_Error =>
+         TIO.Put_Line (Ada.Exceptions.Exception_Message (Fmt_Err));
+      when Other_Err : others =>
          if Is_Open (Bitstream) then
             Close (Bitstream);
          end if;
@@ -209,18 +209,19 @@ package body Flash_Target is
       Base_Address : Unsigned_32 := 0;
       Verbose      : Boolean := False)
    is
-      Input_File    : File_Type;
-      Data          : Stream_Element_Array (1 .. 512);
-      Length        : Stream_Element_Offset;
-      Data_Size_Arr : Stream_Element_Array (1 .. 4)
+      Input_File       : File_Type;
+      Data             : Stream_Element_Array (1 .. 512);
+      Length           : Stream_Element_Offset;
+      Data_Size_Arr    : Stream_Element_Array (1 .. 4)
       with Address => Data_Size'Address;
-      Total         : Integer;
-      Bytes_Sent    : Integer := 0
+      Base_Address_Arr : Stream_Element_Array (1 .. 4)
+      with Address => Base_Address'Address;
+      Total            : Integer;
+      Bytes_Sent       : Integer := 0
       with Volatile;
-      Bar_Width     : constant Integer := 40;
-      Rx_Buffer     : Stream_Element_Array (1 .. 64);
-      Rx_Last       : Stream_Element_Offset;
-
+      Bar_Width        : constant Integer := 40;
+      Rx_Buffer        : Stream_Element_Array (1 .. 64);
+      Rx_Last          : Stream_Element_Offset;
 
       task Progress_Bar is
          entry Start;
@@ -325,8 +326,10 @@ package body Flash_Target is
       Open (Input_File, In_File, Path);
       Set_Index (Input_File, Data_Offset);
       declare
-         Packet : constant Stream_Element_Array :=
-           Make_Packet (Commands.Configure_Target, Data_Size_Arr);
+         Payload : constant Stream_Element_Array :=
+           Data_Size_Arr & Base_Address_Arr;
+         Packet  : constant Stream_Element_Array :=
+           Make_Packet (Commands.Flash_Target, Payload);
       begin
          Protocol.Send_Packet (Port, Packet);
          if not Protocol.Receive_Ready_Packet (Port) then
@@ -370,9 +373,9 @@ package body Flash_Target is
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
          TIO.Put_Line ("Failure: File " & Path & " not found.");
-      when E : Format_Error =>
-         TIO.Put_Line (Ada.Exceptions.Exception_Message (E));
-      when E : others =>
+      when Fmt_Err : Format_Error =>
+         TIO.Put_Line (Ada.Exceptions.Exception_Message (Fmt_Err));
+      when Other_Err : others =>
          if Is_Open (Input_File) then
             Close (Input_File);
          end if;
@@ -410,9 +413,9 @@ package body Flash_Target is
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
          TIO.Put_Line ("Failure: File " & Path & " not found.");
-      when E : Format_Error =>
-         TIO.Put_Line (Ada.Exceptions.Exception_Message (E));
-      when E : others =>
+      when Fmt_Err : Format_Error =>
+         TIO.Put_Line (Ada.Exceptions.Exception_Message (Fmt_Err));
+      when Other_Err : others =>
          if Is_Open (Bitstream) then
             Close (Bitstream);
          end if;
@@ -428,8 +431,9 @@ package body Flash_Target is
    is
       package DIR renames Ada.Directories;
    begin
-      Success := False;
-      if DIR.Exists (Path) then
+      Load_SPI_Over_Jtag
+        (Port => Port, Success => Success, Verbose => Verbose);
+      if Success and then DIR.Exists (Path) then
          Flash
            (Port         => Port,
             Path         => Path,
@@ -439,10 +443,12 @@ package body Flash_Target is
             Verbose      => Verbose);
       else
          TIO.Put_Line ("Failure: File " & Path & " not found.");
+         Success := False;
       end if;
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
          TIO.Put_Line ("Failure: Invalid file name");
+         Success := False;
    end Flash_Firmware;
 
 end Flash_Target;

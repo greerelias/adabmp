@@ -57,7 +57,7 @@ package body Flash_Target_Tests is
       Success : Boolean := False;
    begin
       Flash_Target.Flash_Bitstream (Port, "tester.bit", Success);
-      Assert (Success, "Test should succed.");
+      Assert (Success, "Test should succeed.");
    end Test_Flash_Bitstream_Success;
 
    procedure Test_Flash_Bitstream_No_Response (T : in out Test) is

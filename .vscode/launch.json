@@ -24,12 +24,12 @@
             ]
         },
         {
-            "name": "Debug test_runner_ts4 (gdb)",
+            "name": "Debug test_runner_ts6 (gdb)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/test_runner_ts4",
+            "program": "${workspaceFolder}/bin/test_runner_ts6",
             "args": [],
-            "cwd": "${workspaceFolder}/bin/",
+            "cwd": "${workspaceFolder}",
             "preLaunchTask": "ada: Build current project",
             "miDebuggerPath": "/usr/bin/gdb",
             "stopAtEntry": true,
@@ -53,7 +53,7 @@
         {
             "name": "Build and Debug tests",
             "configurations": [
-                "Debug test_runner (gdb)"
+                "Debug test_runner_ts6 (gdb)"
             ]
         }
     ]

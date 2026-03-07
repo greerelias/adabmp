@@ -4,7 +4,8 @@ with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 package Serial_Interface.Stub is
 
-   type Port_State is (Idle, Testing_Connection, Configuring_Target);
+   type Port_State is
+     (Idle, Testing_Connection, Configuring_Target, Flashing_Target);
    type Mock_Port is limited new Serial_Interface.Serial_Port with record
       Opened       : Boolean := False;
       Written_Data : Unbounded_String;
@@ -18,7 +19,7 @@ package Serial_Interface.Stub is
       Enabled      : Boolean := True;
 
       -- For Configure Target Test
-      Bitstream_Size    : Natural;
+      Data_Size         : Natural;
       Fail_During_Write : Boolean := False;
 
       -- For Board Info Test
