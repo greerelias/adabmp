@@ -1,5 +1,4 @@
 with Ada.Streams; use Ada.Streams;
-with Packet_Formatter;
 with Commands;
 with Protocol;
 with Serial_Interface.Stub;
@@ -126,7 +125,7 @@ package body Serial_Interface.Stub is
                   Port.Write_Count := Port.Write_Count + Data'Length;
                   if Port.Write_Count >= Port.Data_Size then
                      -- Write complete
-                     --  Send_Command_Packet (Port, Configure_Target_Complete);
+                     Port.Send_Command_Packet (Configure_Target_Complete);
                      Port.Write_Count := 0;
                      Port.State := Idle;
                      return;
@@ -145,7 +144,7 @@ package body Serial_Interface.Stub is
                   Port.Write_Count := Port.Write_Count + Data'Length;
                   if Port.Write_Count >= Port.Data_Size then
                      -- Write complete
-                     --  Send_Command_Packet (Port, Configure_Target_Complete);
+                     Port.Send_Command_Packet (Flash_Target_Complete);
                      Port.Write_Count := 0;
                      Port.State := Idle;
                      return;
@@ -211,5 +210,18 @@ package body Serial_Interface.Stub is
       Final_Packet (Final_Packet'Last) := 0;
       Port.Set_Input (Final_Packet);
    end Send_Ready_Packet;
+
+   procedure Send_Command_Packet
+     (Port : in out Mock_Port; Command : in Packet_Formatter.Command_Id)
+   is
+      Ready_Packet  : Stream_Element_Array :=
+        Packet_Formatter.Make_Packet (Command, (1 .. 0 => 0)); -- Empty payload
+      Encoded_Ready : Stream_Element_Array := Protocol.Encode (Ready_Packet);
+      Final_Packet  : Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
+   begin
+      Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;
+      Final_Packet (Final_Packet'Last) := 0;
+      Port.Set_Input (Final_Packet);
+   end Send_Command_Packet;
 
 end Serial_Interface.Stub;

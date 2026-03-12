@@ -184,6 +184,18 @@ package body Flash_Target is
       end loop;
       --  TIO.Put_Line ("Bytes sent" & Bytes_Sent'Image);
       Close (Bitstream);
+      Protocol.Receive_Packet (Port, Data, Length);
+      declare
+         Packet : constant Stream_Element_Array := Data (1 .. Length);
+      begin
+         if not Is_Valid (Packet)
+           and then Get_Command (Packet) /= Commands.Configure_Target_Complete
+         then
+            TIO.Put_Line
+              ("Failure: Did not receive configure complete from programmer");
+            return;
+         end if;
+      end;
       Success := True;
       Progress_Bar.Stop;
 
@@ -367,6 +379,18 @@ package body Flash_Target is
       end loop;
       --  TIO.Put_Line ("Bytes sent" & Bytes_Sent'Image);
       Close (Input_File);
+      Protocol.Receive_Packet (Port, Data, Length);
+      declare
+         Packet : constant Stream_Element_Array := Data (1 .. Length);
+      begin
+         if not Is_Valid (Packet)
+           and then Get_Command (Packet) /= Commands.Flash_Target_Complete
+         then
+            TIO.Put_Line
+              ("Failure: Did not receive flash target complete from programmer");
+            return;
+         end if;
+      end;
       Success := True;
       Progress_Bar.Stop;
 

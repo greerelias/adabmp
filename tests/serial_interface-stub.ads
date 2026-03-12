@@ -1,6 +1,7 @@
 with Serial_Interface;
 with Ada.Streams;           use Ada.Streams;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Packet_Formatter;
 
 package Serial_Interface.Stub is
 
@@ -51,4 +52,6 @@ package Serial_Interface.Stub is
 private
    procedure Send_Ready_Packet (Port : in out Mock_Port);
 
+   procedure Send_Command_Packet
+     (Port : in out Mock_Port; Command : in Packet_Formatter.Command_Id);
 end Serial_Interface.Stub;
