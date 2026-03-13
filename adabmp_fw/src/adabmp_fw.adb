@@ -74,6 +74,17 @@ package body AdaBMP_FW is
          when Start_UART          =>
             Run_UART;
 
+         when Flash_Target        =>
+            declare
+               Payload : UInt8_Array := Get_Payload (Cmd_Packet);
+            begin
+               if Payload'Length >= 8 then
+                  Run_Flash_Target
+                    (Payload (Payload'First .. Payload'First + 3),
+                     Payload (Payload'First + 4 .. Payload'First + 7));
+               end if;
+            end;
+
          when others              =>
             null;
       end case;
@@ -254,6 +265,47 @@ package body AdaBMP_FW is
          end if;
       end loop;
    end Run_UART;
+
+   procedure Run_Flash_Target
+     (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array)
+   is
+      Data_Size     : constant UInt32
+      with Address => Size'Address;
+      Address       : constant Uint32
+      with Address => Base_Addr'Address;
+      Rx            : UInt32 := 1;
+      Block_Size    : constant UInt32 := 16#0001_0000#; -- 64KB
+      Sector_Size   : constant UInt32 := 16#1000#; -- 4KB
+      Error_Timeout : constant Time := 1_000_000; -- 1s
+      Last_Read     : Time;
+      -- Flash Memory Commands
+      -- Commands are 1 byte (MSB First) stored in full word
+      RDSR          : constant UInt32 := 16#0500_0000#; -- Read Status Register
+      BE            : constant UInt32 := 16#D800_0000#; -- Block Erase
+      SE            : constant UInt32 := 16#2000_0000#; -- Sector Erase
+      PP            : constant UInt32 := 16#0200_0000#; -- Page Program
+
+      -- Check WIP bit of status register (bit 0)
+      function Wait_Write_In_Progress return Boolean is
+         Status : UInt32;
+      begin
+         Last_Read := Clock;
+         JTAG.Write_Blocking (RDSR, 8);
+         while Status and 1 > 0 loop
+            JTAG.Read_Blocking (Status, 8);
+            exit when Clock - Last_Read > Error_Timeout;
+         end loop;
+         return Status and 1 = 0; -- Should return false on timeout error
+      end Write_In_Progress;
+
+   begin
+      JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
+      JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
+      JTAG.Write_Blocking (RDSR, 8);
+      JTAG.Read_Blocking (Rx, 8);
+
+      null;
+   end Run_Flash_Target;
 
    procedure Send_Ready is
       Packet : constant UInt8_Array :=

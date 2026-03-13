@@ -33,7 +33,8 @@ private
    procedure Send_Board_Info;
 
    procedure Run_Configure_Target (Size : HAL.UInt8_Array);
-
+   procedure Run_Flash_Target
+     (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array);
    procedure Send_Ready;
    procedure Handle_Command (Cmd_Packet : HAL.UInt8_Array);
    procedure Run_UART;

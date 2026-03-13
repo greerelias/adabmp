@@ -11,7 +11,6 @@ with RP2040_SVD.PIO;
 package JTAG is
 
    type Shift_Direction is (MSB_First, LSB_First);
-
    procedure Init;
 
    procedure Write_Blocking (Data : UInt32; Length : UInt32);
@@ -31,6 +30,7 @@ package JTAG is
    procedure Setup_Configure_Target;
 
    procedure Finish_Configure_Target;
+
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;

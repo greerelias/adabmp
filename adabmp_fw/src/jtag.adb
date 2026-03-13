@@ -51,7 +51,7 @@ package body JTAG is
          Pull      => Pull_Down,
          Slew_Fast => True,
          Func      => P.GPIO_Function);
-      TDO.Configure (Mode => Input, Pull => Pull_Down, Slew_Fast => True);
+      TDO.Configure (Mode => Input, Pull => Floating, Slew_Fast => True);
       TDI.Configure
         (Mode      => Output,
          Pull      => Pull_Up,
@@ -181,8 +181,8 @@ package body JTAG is
    end Set_TX_Shift_Direction;
 
    procedure Setup_Configure_Target is
-      JProgram : UInt32 := 16#B#;
-      CFG_IN   : UInt32 := 16#5#;
+      JProgram : constant UInt32 := 16#B#;
+      CFG_IN   : constant UInt32 := 16#5#;
    begin
       Set_TX_Shift_Direction (LSB_First);
       TAP_Reset;
@@ -213,7 +213,7 @@ package body JTAG is
    end Setup_Configure_Target;
 
    procedure Finish_Configure_Target is
-      JStart : UInt32 := 16#C#;
+      JStart : constant UInt32 := 16#C#;
    begin
       -- Bitstream is finished writing TMS should be high
       Set_TX_Shift_Direction (LSB_First);
