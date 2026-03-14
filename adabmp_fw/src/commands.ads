@@ -14,4 +14,5 @@ package Commands is
    JTAG_Error                : constant Command_Id := 11;
    Configure_Target_Complete : constant Command_Id := 12;
    Start_UART                : constant Command_Id := 13;
+   Run_Debug                 : constant Command_Id := 14;
 end Commands;
