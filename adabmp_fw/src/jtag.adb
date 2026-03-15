@@ -107,7 +107,7 @@ package body JTAG is
    end Read_Blocking;
 
    -- Shift last word with TMS on final bit
-   -- TODO: Fix for
+   -- TODO: Refactor for reading full word only - remove length attribute
    procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
       Last : UInt32;
    begin
@@ -116,6 +116,8 @@ package body JTAG is
       Set_TMS (True);
       Read_Blocking (Last, 1);
       Data := UInt32 (Shift_Right (Data, 1));
+      Last := UInt32 (Shift_Left (Last, 31));
+      Data := Data or Last;
    end Read_Last_Blocking;
 
    procedure Get_Board_Info (Data : in out UInt32) is
