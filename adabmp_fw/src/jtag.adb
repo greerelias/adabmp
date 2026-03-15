@@ -51,7 +51,7 @@ package body JTAG is
          Pull      => Pull_Down,
          Slew_Fast => True,
          Func      => P.GPIO_Function);
-      TDO.Configure (Mode => Input, Pull => Pull_Down, Slew_Fast => True);
+      TDO.Configure (Mode => Input, Pull => Floating, Slew_Fast => True);
       TDI.Configure
         (Mode      => Output,
          Pull      => Pull_Up,
@@ -107,15 +107,15 @@ package body JTAG is
    end Read_Blocking;
 
    -- Shift last word with TMS on final bit
+   -- TODO: Fix for
    procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
       Last : UInt32;
    begin
-      Read_Blocking (Data, Length - 2);
+
+      Read_Blocking (Data, Length - 1);
       Set_TMS (True);
       Read_Blocking (Last, 1);
       Data := UInt32 (Shift_Right (Data, 1));
-      Last := Last and 1;
-      Data := Data or Last;
    end Read_Last_Blocking;
 
    procedure Get_Board_Info (Data : in out UInt32) is
@@ -147,6 +147,7 @@ package body JTAG is
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
+      P.Clear_FIFOs (SM); -- May be better way to handle this??
    end Strobe_Blocking;
 
    procedure Set_TMS (Value : Boolean) is
