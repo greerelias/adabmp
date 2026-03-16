@@ -106,18 +106,23 @@ package body JTAG is
       --  end if;
    end Read_Blocking;
 
-   -- Shift last word with TMS on final bit
-   -- TODO: Refactor for reading full word only - remove length attribute
+   -- Shift last word with TMS high on final bit
    procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
-      Last : UInt32;
+      Last_Bit   : UInt32;
+      Last_Shift : Integer := 32 - Integer (Length);
+      Shift      : Integer := 32 - (Integer (Length) - 1);
    begin
 
       Read_Blocking (Data, Length - 1);
       Set_TMS (True);
-      Read_Blocking (Last, 1);
-      Data := UInt32 (Shift_Right (Data, 1));
-      Last := UInt32 (Shift_Left (Last, 31));
-      Data := Data or Last;
+      -- Get last bit
+      Read_Blocking (Last_Bit, 1);
+      -- Data is shifted in from left to right, align to LSB
+      Data := UInt32 (Shift_Right (Data, Shift));
+      -- Shift Last bit into position
+      Last_Bit := UInt32 (Shift_Left (Last_Bit, Last_Shift));
+      -- Insert last bit
+      Data := Data or Last_Bit;
    end Read_Last_Blocking;
 
    procedure Get_Board_Info (Data : in out UInt32) is
@@ -143,13 +148,16 @@ package body JTAG is
       P.Force_SM_IRQ (0);
       P.Put (SM, Cnt);
       P.Put (SM, 0);
+      -- Why doesn't this clear FIFO?
       if not P.RX_FIFO_Empty (SM) then
          P.Get (SM, Input);
       end if;
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
-      P.Clear_FIFOs (SM); -- May be better way to handle this??
+      -- Clear FIFO so we dont read garbage data
+      -- May be a better way to handle this
+      P.Clear_FIFOs (SM);
    end Strobe_Blocking;
 
    procedure Set_TMS (Value : Boolean) is
