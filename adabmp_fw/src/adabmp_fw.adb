@@ -7,6 +7,7 @@ with Pico;
 
 with HAL;                 use HAL;
 with RP.GPIO;
+with RP.GPIO.Interrupts;
 with RP.Timer;            use RP.Timer;
 with Protocol;            use Protocol;
 with JTAG;
@@ -20,7 +21,7 @@ package body AdaBMP_FW is
    -- For testing w/ external button
    Last_Button_Press : Time := 0;
    Debounce_Time     : constant Time := 500_000; --500ms
-   Testing           : Boolean := False;
+   Testing           : Boolean := True;
 
    Device_Info_Pkt : aliased constant String :=
      Character'Val (170) & Character'Val (2) & "AdaBMP v0.1.0";
@@ -48,9 +49,35 @@ package body AdaBMP_FW is
       pragma Unreferenced (Trigger);
       Test_Word : UInt32 := 16#20#;
 
+      RDSR : constant UInt32 := 16#0500_0000#; -- Read Status Register
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
-         null;
+         Pico.LED.Set;
+         Run_Flash_Target ((0, 0, 2, 0), (0, 0, 0, 0));
+         Pico.LED.Clear;
+
+         --  JTAG.Set_TX_Shift_Direction (JTAG.LSB_First);
+         --  JTAG.TAP_Reset;
+         --  JTAG.Set_TMS (False);
+         --  JTAG.Strobe_Blocking (1); -- RTI
+         --  JTAG.Set_TMS (True);
+         --  JTAG.Strobe_Blocking (2); -- Select-IR
+         --  JTAG.Set_TMS (False);
+         --  JTAG.Strobe_Blocking (2); -- Shift-IR
+         --  JTAG.Write_Last_Blocking (16#02#, 6, JTAG.LSB_First);
+         --  JTAG.Strobe_Blocking (1); -- Update-IR
+         --  JTAG.Set_TMS (False);
+         --  JTAG.Strobe_Blocking (1); -- RTI
+         --  JTAG.Set_TMS (True);
+         --  JTAG.Strobe_Blocking (1); -- Select-DR-Scan
+         --  JTAG.Set_TMS (False);
+         --  JTAG.Strobe_Blocking (2); -- Shift-Dr
+         --  JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
+         --  JTAG.Write_Blocking (16#9F00_0000#, 8);
+         --  JTAG.Read_Last_Blocking (Data, 25);
+         --  JTAG.Strobe_Blocking (1); -- Update-DR
+         --  JTAG.Set_TMS (False);
+         --  JTAG.Strobe_Blocking (1); -- RTI
          Last_Button_Press := Clock;
       end if;
    end GPIO_Isr_Handler;
@@ -269,42 +296,88 @@ package body AdaBMP_FW is
    procedure Run_Flash_Target
      (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array)
    is
-      Data_Size     : constant UInt32
+      Data_Size     : UInt32
       with Address => Size'Address;
-      Address       : constant Uint32
+      Address       : Uint32
       with Address => Base_Addr'Address;
+      Cur_Address   : UInt32 := Address;
       Rx            : UInt32 := 1;
-      Block_Size    : constant UInt32 := 16#0001_0000#; -- 64KB
+      Block_Size    : constant UInt32 := 16#1_0000#; -- 64KB
       Sector_Size   : constant UInt32 := 16#1000#; -- 4KB
       Error_Timeout : constant Time := 1_000_000; -- 1s
       Last_Read     : Time;
       -- Flash Memory Commands
-      -- Commands are 1 byte (MSB First) stored in full word
-      RDSR          : constant UInt32 := 16#0500_0000#; -- Read Status Register
-      BE            : constant UInt32 := 16#D800_0000#; -- Block Erase
-      SE            : constant UInt32 := 16#2000_0000#; -- Sector Erase
-      PP            : constant UInt32 := 16#0200_0000#; -- Page Program
+      -- Commands are 1 byte (sent MSB First)
+      WREN          : constant UInt32 := 16#06#; -- Write Enable
+      BE            : constant UInt32 := 16#D8#; -- Block Erase
+      SE            : constant UInt32 := 16#20#; -- Sector Erase
+      PP            : constant UInt32 := 16#02#; -- Page Program
 
       -- Check WIP bit of status register (bit 0)
       function Wait_Write_In_Progress return Boolean is
-         Status : UInt32;
+         -- Read Status Cmd right padded full word because we are using
+         -- JTAG.Write_Blocking
+         RDSR   : constant UInt32 := 16#0500_0000#;
+         Status : UInt32 := 1;
       begin
          Last_Read := Clock;
+         JTAG.SPI_Start_Transaction;
+         -- Write RDSR and leave CS low so that status reg is sent continuously
+         -- Flash chip will keep sending status aftr RDSR command
          JTAG.Write_Blocking (RDSR, 8);
-         while Status and 1 > 0 loop
-            JTAG.Read_Blocking (Status, 8);
+         JTAG.SPI_Read_Blocking (Status, 8);
+         while (Status and 1) > 0 loop
+            JTAG.SPI_Read_Blocking (Status, 8);
             exit when Clock - Last_Read > Error_Timeout;
          end loop;
-         return Status and 1 = 0; -- Should return false on timeout error
-      end Write_In_Progress;
+         -- Read_Last to shift to exit-dr
+         JTAG.Read_Last_Blocking (Status, 8);
+         JTAG.SPI_End_Transaction;
+         return (Status and 1) = 0; -- Should return false on timeout error
+      end Wait_Write_In_Progress;
 
    begin
-      JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
-      JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
-      JTAG.Write_Blocking (RDSR, 8);
-      JTAG.Read_Blocking (Rx, 8);
+      -- Address must be block aligned
+      if (Address and (Block_Size - 1)) /= 0 then
+         return;
+      end if;
+      JTAG.SPI_Start;
+      -- Send Write Enable
+      JTAG.SPI_Write_Command (WREN);
+      if not Wait_Write_In_Progress then
+         return;
+      end if;
+      -- Erase 64kb Blocks
+      if Data_Size > Block_Size then
+         declare
+            Blocks : constant UInt32 :=
+              Data_Size - (Data_Size mod Block_Size) + Address;
+         begin
+            while Cur_Address < Blocks loop
+               -- Send Command and Address in one word
+               JTAG.SPI_Write_Command (BE, Cur_Address);
+               Cur_Address := Cur_Address + Block_Size;
+               if not Wait_Write_In_Progress then
+                  return;
+               end if;
+            end loop;
+         end;
+      end if;
+      -- Erase 4kb sectors
+      if Cur_Address < Address + Data_Size then
+         declare
+            Sectors : constant UInt32 := Address + Data_Size;
+         begin
+            while Cur_Address < Sectors loop
+               JTAG.SPI_Write_Command (SE, Cur_Address);
+               Cur_Address := Cur_Address + Sector_Size;
+               if not Wait_Write_In_Progress then
+                  return;
+               end if;
+            end loop;
+         end;
+      end if;
 
-      null;
    end Run_Flash_Target;
 
    procedure Send_Ready is
@@ -329,13 +402,12 @@ package body AdaBMP_FW is
       JTAG.Init;
 
       if Testing then
-         -- Enable external switch for testing
-         -- need to switch to different GPIO if used
-         -- GP16 now used of uart so revise if using
-         --  Pico.GP16.Configure (RP.GPIO.Input, RP.GPIO.Pull_Up);
-         --  RP.GPIO.Interrupts.Attach_Handler
-         --    (Pico.GP16, GPIO_Isr_Handler'Access);
-
+         --  Enable external switch for testing
+         Pico.GP18.Configure (RP.GPIO.Input, RP.GPIO.Pull_Up);
+         RP.GPIO.Interrupts.Attach_Handler
+           (Pico.GP18, GPIO_Isr_Handler'Access);
+         Pico.GP18.Enable_Interrupt (RP.GPIO.Falling_Edge);
+         Pico.LED.Configure (RP.GPIO.Output);
          loop
             null;
          end loop;

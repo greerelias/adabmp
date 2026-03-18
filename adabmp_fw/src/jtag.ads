@@ -31,6 +31,26 @@ package JTAG is
 
    procedure Finish_Configure_Target;
 
+   procedure SPI_Read_Register
+     (Cmd : UInt32; Data : in out UInt32; Length : UInt32);
+
+   -- Write command only, CS set HIGH after write
+   procedure SPI_Write_Command (Cmd : UInt32);
+   -- Write command w/ address
+   procedure SPI_Write_Command (Cmd : UInt32; Address : UInt32);
+   -- Write command then read in one transaction
+   procedure SPI_Write_Read_Command
+     (Cmd : UInt32; Data : in out UInt32; Length : UInt32);
+   -- Send USER2 Code to entry SPI mode
+   procedure SPI_Start;
+   procedure SPI_Stop;
+   -- Assume state is RTI and SPI_Start has been called
+   procedure SPI_Start_Transaction;
+   -- Assume state is Exit-DR and SPI_Start has been called
+   procedure SPI_End_Transaction;
+   -- Assume state is Shift-Dr and SPI_Start has been called
+   procedure SPI_Read_Blocking (Data : in out UInt32; Length : UInt32);
+   procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;

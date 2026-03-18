@@ -106,16 +106,23 @@ package body JTAG is
       --  end if;
    end Read_Blocking;
 
-   -- Shift last word with TMS on final bit
+   -- Shift last word with TMS high on final bit
    procedure Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
-      Last : UInt32;
+      Last_Bit   : UInt32;
+      Last_Shift : Integer := 32 - Integer (Length);
+      Shift      : Integer := 32 - (Integer (Length) - 1);
    begin
-      Read_Blocking (Data, Length - 2);
+
+      Read_Blocking (Data, Length - 1);
       Set_TMS (True);
-      Read_Blocking (Last, 1);
-      Data := UInt32 (Shift_Right (Data, 1));
-      Last := Last and 1;
-      Data := Data or Last;
+      -- Get last bit
+      Read_Blocking (Last_Bit, 1);
+      -- Data is shifted in from left to right, align to LSB
+      Data := UInt32 (Shift_Right (Data, Shift));
+      -- Shift Last bit into position
+      Last_Bit := UInt32 (Shift_Left (Last_Bit, Last_Shift));
+      -- Insert last bit
+      Data := Data or Last_Bit;
    end Read_Last_Blocking;
 
    procedure Get_Board_Info (Data : in out UInt32) is
@@ -147,6 +154,7 @@ package body JTAG is
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
+      P.Clear_FIFOs (SM);
    end Strobe_Blocking;
 
    procedure Set_TMS (Value : Boolean) is
@@ -179,6 +187,21 @@ package body JTAG is
       P.Set_Enabled (SM, True);
       P.Clear_FIFOs (SM);
    end Set_TX_Shift_Direction;
+
+   procedure Set_RX_Shift_Direction (Dir : Shift_Direction) is
+   begin
+      P.Set_Enabled (SM, False);
+      case Dir is
+         when LSB_First =>
+            Set_In_Shift (Config, True, True, 32);
+
+         when MSB_First =>
+            Set_In_Shift (Config, False, True, 32);
+      end case;
+      P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
+      P.Set_Enabled (SM, True);
+      P.Clear_FIFOs (SM);
+   end Set_RX_Shift_Direction;
 
    procedure Setup_Configure_Target is
       JProgram : constant UInt32 := 16#B#;
@@ -233,4 +256,112 @@ package body JTAG is
       end loop;
       TAP_Reset;
    end Finish_Configure_Target;
+
+   procedure SPI_Write_Command (Cmd : UInt32) is
+      Cmd_Shifted : UInt32 := UInt32 (Shift_Left (Cmd, 24));
+   begin
+      SPI_Start_Transaction;
+      Write_Last_Blocking (Cmd_Shifted, 8, MSB_First);
+      SPI_End_Transaction;
+   end SPI_Write_Command;
+
+   procedure SPI_Write_Command (Cmd : UInt32; Address : UInt32) is
+      Cmd_Shifted : UInt32 := UInt32 (Shift_Left (Cmd, 24));
+      Cmd_Addr    : UInt32 := Cmd_Shifted or Address;
+   begin
+      SPI_Start_Transaction;
+      Write_Last_Blocking (Cmd_Addr, 32, MSB_First);
+      SPI_End_Transaction;
+   end SPI_Write_Command;
+
+   procedure SPI_Write_Read_Command
+     (Cmd : UInt32; Data : in out UInt32; Length : UInt32)
+   is
+      Cmd_Shifted : UInt32 := UInt32 (Shift_Left (Cmd, 24));
+   begin
+      SPI_Start_Transaction;
+      Write_Blocking (Cmd_Shifted, 8);
+      SPI_Read_Last_Blocking (Data, Length);
+      SPI_End_Transaction;
+   end SPI_Write_Read_Command;
+
+   procedure SPI_Read_Register
+     (Cmd : UInt32; Data : in out UInt32; Length : UInt32) is
+   begin
+      Set_TMS (False);
+      Write_Blocking (Cmd, 8);
+      Read_Blocking (Data, Length);
+      Set_TMS (True);
+   end SPI_Read_Register;
+
+   procedure SPI_Start is
+   begin
+      JTAG.TAP_Reset;
+      JTAG.Set_TMS (False);
+      JTAG.Strobe_Blocking (1); -- RTI
+      JTAG.Set_TMS (True);
+      JTAG.Strobe_Blocking (2); -- Select-IR
+      JTAG.Set_TMS (False);
+      JTAG.Strobe_Blocking (2); -- Shift-IR
+      -- Send USER2 code to start SPI
+      JTAG.Write_Last_Blocking (16#02#, 6, JTAG.LSB_First);
+      JTAG.Strobe_Blocking (1); -- Update-IR
+      JTAG.Set_TMS (False);
+      JTAG.Strobe_Blocking (1); -- RTI
+      JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
+      JTAG.Set_RX_Shift_Direction (JTAG.MSB_First);
+      -- Ready to shift data
+   end SPI_Start;
+
+   procedure SPI_Stop is
+   begin
+      Set_TX_Shift_Direction (LSB_First);
+      Set_RX_Shift_Direction (LSB_First);
+   end SPI_Stop;
+
+   -- Assume state is RTI and SPI_Start has been called
+   procedure SPI_Start_Transaction is
+   begin
+      JTAG.Set_TMS (True);
+      JTAG.Strobe_Blocking (1); -- Select-DR-Scan
+      JTAG.Set_TMS (False);
+      JTAG.Strobe_Blocking (2); -- Shift-Dr
+   end SPI_Start_Transaction;
+
+   -- Assume state is Exit-DR and SPI_Start has been called
+   procedure SPI_End_Transaction is
+   begin
+      JTAG.Strobe_Blocking (1); -- Update-DR
+      JTAG.Set_TMS (False);
+      JTAG.Strobe_Blocking (1); -- RTI
+   end SPI_End_Transaction;
+
+   -- Assume state is Shift-Dr and SPI_Start has been called
+   procedure SPI_Read_Blocking (Data : in out UInt32; Length : UInt32) is
+      Shift : constant Integer := Integer (32 - Length);
+      Fs    : constant Unsigned_32 := 16#FFFF_FFFF#;
+      Mask  : constant UInt32 :=
+        not UInt32 (Shift_Left (Fs, Integer (Length)));
+   begin
+      P.Force_SM_IRQ (0);
+      P.Put (SM, Length);
+      P.Put (SM, 0);
+      while P.SM_IRQ_Status (0) loop
+         null;
+      end loop;
+      P.Get (SM, Data);
+      -- SPI SO is delay one TCK so dont want MSB
+      Data := Data and Mask;
+   end SPI_Read_Blocking;
+
+   procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
+      Last_Bit : UInt32;
+   begin
+      SPI_Read_Blocking (Data, Length - 1);
+      Set_TMS (True);
+      Read_Blocking (Last_Bit, 1);
+      Data := UInt32 (Shift_Left (Data, 1));
+      Data := Data or Last_Bit;
+   end SPI_Read_Last_Blocking;
+
 end JTAG;
