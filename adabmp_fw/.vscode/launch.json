@@ -26,6 +26,9 @@
             ],
             "openOCDLaunchCommands": [
                 "targets rp2040.core0"
+            ],
+            "postAttachCommands": [
+                "set output-radix 16"
             ]
         },
         {

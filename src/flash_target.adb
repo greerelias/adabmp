@@ -344,6 +344,7 @@ package body Flash_Target is
            Make_Packet (Commands.Flash_Target, Payload);
       begin
          Protocol.Send_Packet (Port, Packet);
+         delay (0.010);
          if not Protocol.Receive_Ready_Packet (Port) then
             TIO.Put_Line ("Failure: Programmer not ready.");
             return;
@@ -361,6 +362,7 @@ package body Flash_Target is
       Port.Write (Data (1 .. Length));
       Bytes_Sent := Bytes_Sent + Integer (Length);
 
+      delay (1.0);
       while not End_Of_File (Input_File) loop
          -- Wait for response from programmer to send more
          if not Protocol.Receive_Ready_Packet (Port) then
@@ -419,11 +421,12 @@ package body Flash_Target is
       Bitstream_Size_U32 : Unsigned_32
       with Address => Bitstream_Size'Address;
    begin
-      Success := False;
+      Success := True;
       Bitstream_Header := Bitstream_Parser.Parse_Header (Path);
       Bitstream_Size_U32 := Bitstream_Header.Data_Length;
-      Load_SPI_Over_Jtag
-        (Port => Port, Success => Success, Verbose => Verbose);
+      --  Load_SPI_Over_Jtag
+      --    (Port => Port, Success => Success, Verbose => Verbose);
+      delay (0.010);
       if Success then
          Flash
            (Port,

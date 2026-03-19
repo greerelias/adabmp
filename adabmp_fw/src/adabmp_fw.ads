@@ -36,6 +36,7 @@ private
    procedure Run_Flash_Target
      (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array);
    procedure Send_Ready;
+   procedure Send_Command (Command : Command_Id);
    procedure Handle_Command (Cmd_Packet : HAL.UInt8_Array);
    procedure Run_UART;
 end AdaBMP_FW;

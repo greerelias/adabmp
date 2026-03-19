@@ -281,7 +281,7 @@ package body JTAG is
    begin
       SPI_Start_Transaction;
       Write_Blocking (Cmd_Shifted, 8);
-      SPI_Read_Last_Blocking (Data, Length);
+      SPI_Read_Once_Blocking (Data, Length);
       SPI_End_Transaction;
    end SPI_Write_Read_Command;
 
@@ -317,6 +317,7 @@ package body JTAG is
    begin
       Set_TX_Shift_Direction (LSB_First);
       Set_RX_Shift_Direction (LSB_First);
+      JTAG.TAP_Reset;
    end SPI_Stop;
 
    -- Assume state is RTI and SPI_Start has been called
@@ -337,11 +338,9 @@ package body JTAG is
    end SPI_End_Transaction;
 
    -- Assume state is Shift-Dr and SPI_Start has been called
-   procedure SPI_Read_Blocking (Data : in out UInt32; Length : UInt32) is
-      Shift : constant Integer := Integer (32 - Length);
-      Fs    : constant Unsigned_32 := 16#FFFF_FFFF#;
-      Mask  : constant UInt32 :=
-        not UInt32 (Shift_Left (Fs, Integer (Length)));
+   procedure SPI_Start_Read_Blocking (Data : in out UInt32; Length : UInt32) is
+      Fs   : constant Unsigned_32 := 16#FFFF_FFFF#;
+      Mask : constant UInt32 := not UInt32 (Shift_Left (Fs, Integer (Length)));
    begin
       P.Force_SM_IRQ (0);
       P.Put (SM, Length);
@@ -350,18 +349,36 @@ package body JTAG is
          null;
       end loop;
       P.Get (SM, Data);
-      -- SPI SO is delay one TCK so dont want MSB
+      -- SPI SO is delayed one TCK so dont want MS
       Data := Data and Mask;
-   end SPI_Read_Blocking;
+   end SPI_Start_Read_Blocking;
 
+   -- Use only after SPI_Start_Read_Blocking to account for SO delay
+   procedure SPI_Read_Next_Blocking (Data : in out UInt32; Length : UInt32) is
+   begin
+      Read_Blocking (Data, Length);
+   end SPI_Read_Next_Blocking;
+
+   -- Use to finish read after SPI_Start_Read_Blocking or SPI_Read_Next_Blocking
    procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32) is
       Last_Bit : UInt32;
    begin
-      SPI_Read_Blocking (Data, Length - 1);
+      Read_Blocking (Data, Length - 1);
       Set_TMS (True);
       Read_Blocking (Last_Bit, 1);
       Data := UInt32 (Shift_Left (Data, 1));
       Data := Data or Last_Bit;
    end SPI_Read_Last_Blocking;
+
+   -- Use for single read up to full word
+   procedure SPI_Read_Once_Blocking (Data : in out UInt32; Length : UInt32) is
+      Last_Bit : UInt32;
+   begin
+      SPI_Start_Read_Blocking (Data, Length - 1);
+      Set_TMS (True);
+      Read_Blocking (Last_Bit, 1);
+      Data := UInt32 (Shift_Left (Data, 1));
+      Data := Data or Last_Bit;
+   end SPI_Read_Once_Blocking;
 
 end JTAG;

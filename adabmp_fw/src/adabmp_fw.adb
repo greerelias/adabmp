@@ -53,7 +53,17 @@ package body AdaBMP_FW is
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
          Pico.LED.Set;
-         Run_Flash_Target ((0, 0, 2, 0), (0, 0, 0, 0));
+         JTAG.SPI_Start_Transaction;
+         -- Write RDSR and leave CS low so that status reg is sent continuously
+         -- Flash chip will keep sending status aftr RDSR command
+         JTAG.Write_Blocking (RDSR, 8);
+         JTAG.SPI_Start_Read_Blocking (Data, 8);
+         for I in 1 .. 10 loop
+            JTAG.SPI_Read_Next_Blocking (Data, 8);
+         end loop;
+         -- Read_Last to shift to exit-dr
+         JTAG.SPI_Read_Last_Blocking (Data, 8);
+         JTAG.SPI_End_Transaction;
          Pico.LED.Clear;
 
          --  JTAG.Set_TX_Shift_Direction (JTAG.LSB_First);
@@ -216,7 +226,7 @@ package body AdaBMP_FW is
                if Bytes_Written_Total = Bs_Size then
                   -- Last word requires special handling
                   JTAG.Write_Last_Blocking
-                    (Reverse_Bytes (Data (1)), 32, JTAG.MSB_First);
+                    (Reverse_Bytes (Data (I)), 32, JTAG.MSB_First);
                   Pico.LED.Set;
                   exit;
                else
@@ -236,6 +246,7 @@ package body AdaBMP_FW is
       end loop;
 
       JTAG.Finish_Configure_Target;
+      Send_Command (Configure_Target_Complete);
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
    end Run_Configure_Target;
@@ -296,28 +307,37 @@ package body AdaBMP_FW is
    procedure Run_Flash_Target
      (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array)
    is
-      Data_Size     : UInt32
+      Data_Size           : UInt32
       with Address => Size'Address;
-      Address       : Uint32
+      Address             : Uint32
       with Address => Base_Addr'Address;
-      Cur_Address   : UInt32 := Address;
-      Rx            : UInt32 := 1;
-      Block_Size    : constant UInt32 := 16#1_0000#; -- 64KB
-      Sector_Size   : constant UInt32 := 16#1000#; -- 4KB
-      Error_Timeout : constant Time := 1_000_000; -- 1s
-      Last_Read     : Time;
+      Data                : UInt32_Array (1 .. 16);
+      Cur_Address         : UInt32 := Address;
+      Last_Read           : Time;
+      Bytes_Written_Total : UInt32 := 0;
+      Bytes_Written       : UInt32 := 0;
+      Page_Written        : UInt32 := 0;
+      Page_Overflow       : UInt32 := 0;
       -- Flash Memory Commands
       -- Commands are 1 byte (sent MSB First)
-      WREN          : constant UInt32 := 16#06#; -- Write Enable
-      BE            : constant UInt32 := 16#D8#; -- Block Erase
-      SE            : constant UInt32 := 16#20#; -- Sector Erase
-      PP            : constant UInt32 := 16#02#; -- Page Program
+      WREN                : constant UInt32 := 16#06#; -- Write Enable
+      BE                  : constant UInt32 := 16#D8#; -- Block Erase
+      SE                  : constant UInt32 := 16#20#; -- Sector Erase
+      Block_Size          : constant UInt32 := 16#1_0000#; -- 64KB
+      Sector_Size         : constant UInt32 := 16#1000#; -- 4KB
+      Page_Size           : constant UInt32 := 16#100#; -- 256 bytes
+      Error_Timeout       : constant Time := 1_000_000; -- 1s
+
+      -- Read Status Cmd right padded full word because we are using
+      -- JTAG.Write_Blocking so we can continously read the status reg
+      RDSR : constant UInt32 := 16#0500_0000#;
+      PP   : constant UInt32 := 16#0200_0000#; -- Page Program
+
+      package AU renames Atomic.Unsigned_32;
+      package BC renames Byte_Counter;
 
       -- Check WIP bit of status register (bit 0)
       function Wait_Write_In_Progress return Boolean is
-         -- Read Status Cmd right padded full word because we are using
-         -- JTAG.Write_Blocking
-         RDSR   : constant UInt32 := 16#0500_0000#;
          Status : UInt32 := 1;
       begin
          Last_Read := Clock;
@@ -325,13 +345,13 @@ package body AdaBMP_FW is
          -- Write RDSR and leave CS low so that status reg is sent continuously
          -- Flash chip will keep sending status aftr RDSR command
          JTAG.Write_Blocking (RDSR, 8);
-         JTAG.SPI_Read_Blocking (Status, 8);
+         JTAG.SPI_Start_Read_Blocking (Status, 8);
          while (Status and 1) > 0 loop
-            JTAG.SPI_Read_Blocking (Status, 8);
+            JTAG.SPI_Read_Next_Blocking (Status, 8);
             exit when Clock - Last_Read > Error_Timeout;
          end loop;
          -- Read_Last to shift to exit-dr
-         JTAG.Read_Last_Blocking (Status, 8);
+         JTAG.SPI_Read_Last_Blocking (Status, 8);
          JTAG.SPI_End_Transaction;
          return (Status and 1) = 0; -- Should return false on timeout error
       end Wait_Write_In_Progress;
@@ -341,12 +361,12 @@ package body AdaBMP_FW is
       if (Address and (Block_Size - 1)) /= 0 then
          return;
       end if;
+      USB_Serial.Clear_Buffers;
+      BC.Clear_Bytes_In;
+      Send_Ready;
+
       JTAG.SPI_Start;
       -- Send Write Enable
-      JTAG.SPI_Write_Command (WREN);
-      if not Wait_Write_In_Progress then
-         return;
-      end if;
       -- Erase 64kb Blocks
       if Data_Size > Block_Size then
          declare
@@ -377,7 +397,85 @@ package body AdaBMP_FW is
             end loop;
          end;
       end if;
+      Cur_Address := Address;
+      -- Wait for buffer full if necessary
+      while AU.Load (BC.Bytes_In) < 1024 loop
+         null;
+      end loop;
 
+      while USB_Serial.List_Ctrl_State.DTE_Is_Present
+        and Bytes_Written_Total < Data_Size
+      loop
+         -- Get up to 64 Bytes
+         USB_Serial.Read (Data'Address, Length);
+         Last_Read := Clock;
+         if Length > 0 then
+            if not Wait_Write_In_Progress then
+               return;
+            end if;
+            JTAG.SPI_Write_Command (WREN);
+            JTAG.SPI_Start_Transaction;
+            JTAG.Write_Blocking (PP or Cur_Address, 32);
+            if Page_Written + Length > Page_Size then
+               Page_Overflow := Page_Written + Length - Page_Size;
+               Length := Length - Page_Overflow;
+            else
+               Page_Overflow := 0;
+            end if;
+            -- write to current Length bytes to current page
+            for I in 1 .. Integer (Length / 4) loop
+               Bytes_Written_Total := Bytes_Written_Total + 4;
+               if Bytes_Written_Total = Data_Size then
+                  -- Last word requires special handling
+                  JTAG.Write_Last_Blocking
+                    (Reverse_Bytes (Data (I)), 32, JTAG.MSB_First);
+                  exit;
+               else
+                  JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
+               end if;
+               Page_Written := Page_Written + 4;
+            end loop;
+            if Page_Written >= Page_Size then
+               JTAG.SPI_End_Transaction;
+               Cur_Address := Cur_Address + Page_Size;
+               Bytes_Written := Bytes_Written + Page_Size;
+               if Bytes_Written > 512 then
+                  Send_Ready; -- Tell host to send next 512 bytes
+
+               end if;
+            end if;
+            -- Handle any overflow
+            if Page_Overflow > 0 then
+               -- Wait for previous page to finish
+               if not Wait_Write_In_Progress then
+                  return;
+               end if;
+               JTAG.Write_Blocking (PP or Cur_Address, 32);
+               JTAG.SPI_Start_Transaction;
+               for I in 1 .. Integer (Page_Overflow / 4) loop
+                  Bytes_Written_Total := Bytes_Written_Total + 4;
+                  if Bytes_Written_Total = Data_Size then
+                     -- Last word requires special handling
+                     JTAG.Write_Last_Blocking
+                       (Reverse_Bytes (Data (I)), 32, JTAG.MSB_First);
+                     exit;
+                  else
+                     JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
+                  end if;
+                  Page_Written := Page_Written + 4;
+               end loop;
+               JTAG.SPI_End_Transaction;
+            end if;
+         end if;
+         -- Exit after timeout if no data to read
+         if Clock - Last_Read > Error_Timeout then
+            return;
+         end if;
+      end loop;
+      JTAG.SPI_Stop;
+      Send_Command (Flash_Target_Complete);
+      USB_Serial.Clear_Buffers;
+      BC.Clear_Bytes_In;
    end Run_Flash_Target;
 
    procedure Send_Ready is
@@ -389,6 +487,16 @@ package body AdaBMP_FW is
       USB_Tx (Packet'Length + 1) := 0;
       USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Length);
    end Send_Ready;
+
+   procedure Send_Command (Command : Command_Id) is
+      Packet : constant UInt8_Array :=
+        Encode (Make_Packet (Command, (1 .. 0 => 0)));
+      Length : UInt32 := UInt32 (Packet'Length + 1);
+   begin
+      USB_Tx (1 .. Packet'Length) := Packet;
+      USB_Tx (Packet'Length + 1) := 0;
+      USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Length);
+   end Send_Command;
 
    procedure Run is
    begin
@@ -408,6 +516,7 @@ package body AdaBMP_FW is
            (Pico.GP18, GPIO_Isr_Handler'Access);
          Pico.GP18.Enable_Interrupt (RP.GPIO.Falling_Edge);
          Pico.LED.Configure (RP.GPIO.Output);
+         JTAG.SPI_Start;
          loop
             null;
          end loop;

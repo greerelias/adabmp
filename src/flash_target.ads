@@ -3,7 +3,7 @@ with Serial_Interface;
 with Interfaces;            use Interfaces;
 
 package Flash_Target is
-   SPI_JTAG_BS_Path : constant String := "spiOverJtag_xc7a35t.bit";
+   SPI_JTAG_BS_Path : constant String := "spiOverJtag_xc7a35tcpg236.bit";
    procedure Load_SPI_Over_Jtag
      (Port    : in out Serial_Interface.Serial_Port'Class;
       Success : in out Boolean;

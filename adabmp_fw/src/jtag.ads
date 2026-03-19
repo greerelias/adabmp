@@ -49,8 +49,14 @@ package JTAG is
    -- Assume state is Exit-DR and SPI_Start has been called
    procedure SPI_End_Transaction;
    -- Assume state is Shift-Dr and SPI_Start has been called
-   procedure SPI_Read_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Initiate a read were a single command results in multiple bytes returned
+   procedure SPI_Start_Read_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use only after SPI_Start_Read_Blocking to keep reading
+   procedure SPI_Read_Next_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use to finish read after SPI_Start_Read_Blocking or SPI_Read_Next_Blocking
    procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use for single read up to full word
+   procedure SPI_Read_Once_Blocking (Data : in out UInt32; Length : UInt32);
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;
