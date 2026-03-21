@@ -362,7 +362,7 @@ package body Flash_Target is
       Port.Write (Data (1 .. Length));
       Bytes_Sent := Bytes_Sent + Integer (Length);
 
-      delay (1.0);
+      delay (2.0);
       while not End_Of_File (Input_File) loop
          -- Wait for response from programmer to send more
          if not Protocol.Receive_Ready_Packet (Port) then

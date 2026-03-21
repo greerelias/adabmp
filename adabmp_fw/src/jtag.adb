@@ -63,7 +63,6 @@ package body JTAG is
    end Init_Pins;
 
    procedure Write_Blocking (Data : UInt32; Length : UInt32) is
-      Input : UInt32;
    begin
       P.Force_SM_IRQ (0);
       P.Put (SM, Length - 1);
@@ -71,10 +70,7 @@ package body JTAG is
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
-      -- Clear RX FIFO
-      if not P.RX_FIFO_Empty (SM) then
-         P.Get (SM, Input);
-      end if;
+      P.Clear_FIFOs (SM);
    end Write_Blocking;
 
    procedure Write_Last_Blocking
@@ -101,9 +97,8 @@ package body JTAG is
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
-      --  if not P.RX_FIFO_Empty (SM) then
       P.Get (SM, Data);
-      --  end if;
+      P.Clear_FIFOs (SM);
    end Read_Blocking;
 
    -- Shift last word with TMS high on final bit
@@ -142,15 +137,11 @@ package body JTAG is
 
    -- Strobe up to 32 clocks
    procedure Strobe_Blocking (Count : UInt32) is
-      Cnt   : constant UInt32 := Count - 1;
-      Input : UInt32;
+      Cnt : constant UInt32 := Count - 1;
    begin
       P.Force_SM_IRQ (0);
       P.Put (SM, Cnt);
       P.Put (SM, 0);
-      if not P.RX_FIFO_Empty (SM) then
-         P.Get (SM, Input);
-      end if;
       while P.SM_IRQ_Status (0) loop
          null;
       end loop;
@@ -349,6 +340,7 @@ package body JTAG is
          null;
       end loop;
       P.Get (SM, Data);
+      P.Clear_FIFOs (SM);
       -- SPI SO is delayed one TCK so dont want MS
       Data := Data and Mask;
    end SPI_Start_Read_Blocking;
