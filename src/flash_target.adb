@@ -1,4 +1,5 @@
 with Ada.Streams;           use Ada.Streams;
+with Interfaces.Fortran;
 with Serial_Interface;
 with Bitstream_Parser;      use Bitstream_Parser;
 with Ada.Text_IO;
@@ -81,12 +82,7 @@ package body Flash_Target is
                & Bar
                & "] "
                & Integer (Percent)'Image
-               & "% "
-               & "("
-               & Bytes_Sent'Image
-               & " /"
-               & Total'Image
-               & " bytes)");
+               & "% ");
             TIO.Flush;
          end Update;
       begin
@@ -108,7 +104,7 @@ package body Flash_Target is
                   Running := False;
                   if Success then
                      TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Configuration Complete");
+                       (Ada.Characters.Latin_1.LF & "Configuration Complete.");
                   end if;
                end Stop;
             or
@@ -124,7 +120,7 @@ package body Flash_Target is
                   Update; -- Ensure final status is printed
                   if Success then
                      TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Configuration Complete");
+                       (Ada.Characters.Latin_1.LF & "Configuration Complete.");
                   end if;
                end Stop;
             or
@@ -188,11 +184,13 @@ package body Flash_Target is
       declare
          Packet : constant Stream_Element_Array := Data (1 .. Length);
       begin
-         if not Is_Valid (Packet)
+         if Is_Valid (Packet)
            and then Get_Command (Packet) /= Commands.Configure_Target_Complete
          then
+            Progress_Bar.Stop (False);
             TIO.Put_Line
-              ("Failure: Did not receive configure complete from programmer");
+              (Ada.Characters.Latin_1.LF
+               & "Failure: Did not receive configure complete from programmer");
             return;
          end if;
       end;
@@ -306,7 +304,7 @@ package body Flash_Target is
                   Running := False;
                   if Success then
                      TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Flash Complete");
+                       (Ada.Characters.Latin_1.LF & "Flash Complete.");
                   end if;
                end Stop;
             or
@@ -322,7 +320,7 @@ package body Flash_Target is
                   Update; -- Ensure final status is printed
                   if Success then
                      TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Transfer complete");
+                       (Ada.Characters.Latin_1.LF & "Flash Complete.");
                   end if;
                end Stop;
             or
@@ -351,9 +349,6 @@ package body Flash_Target is
          end if;
       end;
       -- TODO: make status message optional
-      if Verbose then
-         Progress_Bar.Start;
-      end if;
       -- Write first 1KB
       Read (Input_File, Data, Length);
       Port.Write (Data (1 .. Length));
@@ -362,7 +357,18 @@ package body Flash_Target is
       Port.Write (Data (1 .. Length));
       Bytes_Sent := Bytes_Sent + Integer (Length);
 
-      delay (2.0);
+      TIO.Put_Line ("Starting erase...");
+      delay (Get_Erase_Delay (Data_Size));
+      TIO.Put_Line ("Done.");
+
+      if not Protocol.Receive_Ready_Packet (Port) then
+         TIO.Put_Line ("Failure: Error during flash erase.");
+         return;
+      end if;
+
+      if Verbose then
+         Progress_Bar.Start;
+      end if;
       while not End_Of_File (Input_File) loop
          -- Wait for response from programmer to send more
          if not Protocol.Receive_Ready_Packet (Port) then
@@ -424,8 +430,8 @@ package body Flash_Target is
       Success := True;
       Bitstream_Header := Bitstream_Parser.Parse_Header (Path);
       Bitstream_Size_U32 := Bitstream_Header.Data_Length;
-      --  Load_SPI_Over_Jtag
-      --    (Port => Port, Success => Success, Verbose => Verbose);
+      Load_SPI_Over_Jtag
+        (Port => Port, Success => Success, Verbose => Verbose);
       delay (0.010);
       if Success then
          Flash
@@ -478,4 +484,20 @@ package body Flash_Target is
          Success := False;
    end Flash_Firmware;
 
+   function Get_Erase_Delay (Size : Unsigned_32) return Duration is
+      Data_Size    : Integer := Integer (Size);
+      Block_Size   : constant Integer := 16#1_0000#;
+      Sector_Size  : constant Integer := 16#1000#;
+      -- Wait in ms times are for approximate for MX25L3233F flash chip
+      -- may be different for others
+      Block_Wait   : constant Integer := 325;
+      Sector_Wait  : constant Integer := 28;
+      Block_Delay  : constant Integer := (Data_Size / Block_Size) * Block_Wait;
+      Sector_Delay : constant Float :=
+        Float'Ceiling
+          ((Float ((Data_Size mod Block_Size)) / Float (Sector_Size)))
+        * Float (Sector_Wait);
+   begin
+      return Duration ((Float (Block_Delay) + Sector_Delay) * 0.001);
+   end Get_Erase_Delay;
 end Flash_Target;

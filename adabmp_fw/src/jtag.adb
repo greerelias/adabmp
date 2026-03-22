@@ -32,7 +32,7 @@ package body JTAG is
          Wrap        => JTAG.PIO.Jtag_Tdo_Wrap);
       -- 100KHz: 4 instructions in loop; 1 clock each instruction
       -- TCK = Clk_F/4
-      Set_Clock_Frequency (Config, 4_000_000);
+      Set_Clock_Frequency (Config, 24_000_000);
 
       P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
       P.Set_Pin_Direction (SM, TCK.Pin, Output);

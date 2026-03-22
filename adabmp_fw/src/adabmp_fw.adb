@@ -218,7 +218,8 @@ package body AdaBMP_FW is
                Bytes_Written := Bytes_Written + 4;
             end loop;
          end if;
-         if Bytes_Written >= 512 then
+         if Bytes_Written >= 512 and then Bytes_Written_Total < Bs_Size - 512
+         then
             Bytes_Written := 0;
             Send_Ready; -- Tell host to send next 512 bytes
 
@@ -300,8 +301,6 @@ package body AdaBMP_FW is
       Bytes_Written_Total : UInt32 := 0;
       Bytes_Written       : UInt32 := 0;
       Page_Written        : UInt32 := 0;
-      Page_Overflow       : UInt32 := 0;
-      Next_Write          : UInt32 := 0;
       -- Flash Memory Commands
       -- Commands are 1 byte (sent MSB First)
       WREN                : constant UInt32 := 16#06#; -- Write Enable
@@ -414,80 +413,61 @@ package body AdaBMP_FW is
          USB_Serial.Read (Data'Address, Length);
          Last_Read := Clock;
          if Length > 0 then
-            Next_Write := Page_Written + Length;
-            -- Next write will finish page or finish flash process
-            if Next_Write >= Page_Size
-              or Bytes_Written_Total + Next_Write = Data_Size
-            then
-               Page_Overflow := Next_Write mod Page_Size;
-               Length := Length - Page_Overflow; -- 0 if no page overflow
-               for I in 1 .. Integer (Length / 4) - 1 loop
-                  Pico.LED.Set;
-                  JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
-               end loop;
-               -- CS must be set high on final byte written
-               JTAG.Write_Last_Blocking
-                 (Reverse_Bytes (Data (Integer (Length / 4))),
-                  32,
-                  JTAG.MSB_First);
-               JTAG.SPI_End_Transaction;
-               Pico.LED.Clear;
-               Page_Written := 0;
-               -- Increment address to next page
-               Cur_Address := Cur_Address + Page_Size;
-               Bytes_Written := Bytes_Written + Page_Size;
-               -- wait for page program to finish
-               if not Wait_Write_In_Progress then
-                  return;
-               end if;
-               -- if flash isn't complete start new page write
-               if Bytes_Written_Total + Next_Write < Data_Size then
-                  JTAG.SPI_Write_Command (WREN);
-                  JTAG.SPI_Start_Transaction;
-                  JTAG.Write_Blocking (PP or Cur_Address, 32);
-               end if;
-            else
-               -- Next write is partial page
-               for I in 1 .. Integer (Length / 4) loop
-                  Pico.LED.Set;
-                  JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
-                  Pico.LED.Clear;
-               end loop;
-               Page_Written := Page_Written + Length;
+            -- SPI page writer: shift 32-bit words and close a transaction
+            -- on page boundary or final word of full transfer.
+            if (Length mod 4) /= 0 then
+               return;
             end if;
-            -- Increment byte counter
-            Bytes_Written_Total := Bytes_Written_Total + Length;
-            -- Handle any overflow (< 64 bytes)
-            -- Overflow should never result in finishing a page,
-            -- only starting a new one. If we get to this point
-            -- a new page just started.
-            if Page_Overflow > 0 then
-               --  If overflow finishes the write handle correctly
-               if Bytes_Written_Total + Page_Overflow = Data_Size then
-                  for I in 1 .. Integer (Page_Overflow / 4) - 1 loop
+
+            declare
+               Words : constant Integer := Integer (Length / 4);
+            begin
+               for I in 1 .. Words loop
+                  declare
+                     Is_Last_Page_Word   : constant Boolean :=
+                       Page_Written + 4 = Page_Size;
+                     Is_Last_Global_Word : constant Boolean :=
+                       Bytes_Written_Total + 4 = Data_Size;
+                  begin
                      Pico.LED.Set;
-                     JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
-                  end loop;
-                  -- CS must be set high on final byte written
-                  JTAG.Write_Last_Blocking
-                    (Reverse_Bytes (Data (Integer (Page_Overflow / 4))),
-                     32,
-                     JTAG.MSB_First);
-                  JTAG.SPI_End_Transaction;
-               else
-                  for I in 1 .. Integer (Page_Overflow / 4) loop
-                     JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
-                  end loop;
-                  Page_Written := Page_Written + Page_Overflow;
-               end if;
-               Bytes_Written_Total := Bytes_Written_Total + Page_Overflow;
-            end if;
+                     if Is_Last_Page_Word or Is_Last_Global_Word then
+                        -- CS must be set high on final bit of page/final word
+                        JTAG.Write_Last_Blocking
+                          (Reverse_Bytes (Data (I)), 32, JTAG.MSB_First);
+                        JTAG.SPI_End_Transaction;
+                        Pico.LED.Clear;
+
+                        Bytes_Written_Total := Bytes_Written_Total + 4;
+                        Bytes_Written := Bytes_Written + 4;
+                        Page_Written := 0;
+
+                        -- wait for page program to finish
+                        if not Wait_Write_In_Progress then
+                           return;
+                        end if;
+
+                        -- Start next page only when data remains
+                        if Bytes_Written_Total < Data_Size then
+                           Cur_Address := Cur_Address + Page_Size;
+                           JTAG.SPI_Write_Command (WREN);
+                           JTAG.SPI_Start_Transaction;
+                           JTAG.Write_Blocking (PP or Cur_Address, 32);
+                        end if;
+                     else
+                        JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
+                        Pico.LED.Clear;
+                        Bytes_Written_Total := Bytes_Written_Total + 4;
+                        Bytes_Written := Bytes_Written + 4;
+                        Page_Written := Page_Written + 4;
+                     end if;
+                  end;
+               end loop;
+            end;
 
          end if;
          -- Exit after timeout if no data to read
          if Clock - Last_Read > Error_Timeout then
-            null;
-         --  return;
+            return;
 
          end if;
       end loop;
@@ -497,6 +477,7 @@ package body AdaBMP_FW is
          return;
       end if;
       JTAG.SPI_Stop;
+      -- Restart FPGA to load from flash
       JTAG.Load_JProgram;
       Send_Command (Flash_Target_Complete);
       USB_Serial.Clear_Buffers;

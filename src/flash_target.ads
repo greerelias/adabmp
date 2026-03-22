@@ -30,4 +30,5 @@ private
       Base_Address : Unsigned_32 := 0;
       Verbose      : Boolean := False);
 
+   function Get_Erase_Delay (Size : Unsigned_32) return Duration;
 end Flash_Target;

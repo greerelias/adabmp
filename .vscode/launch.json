@@ -7,10 +7,10 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/adabmp",
             "args": [
-                "-ct",
+                "-fb",
                 "${workspaceFolder}/bin/blinky.bit"
             ],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/bin",
             "preLaunchTask": "ada: Build current project",
             "miDebuggerPath": "/usr/bin/gdb",
             "stopAtEntry": true,
