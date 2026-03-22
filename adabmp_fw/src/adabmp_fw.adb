@@ -69,42 +69,8 @@ package body AdaBMP_FW is
       end Wait_Write_In_Progress;
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
-         Pico.LED.Set;
-         JTAG.SPI_Start_Transaction;
-         -- Write RDSR and leave CS low so that status reg is sent continuously
-         -- Flash chip will keep sending status aftr RDSR command
-         JTAG.Write_Blocking (RDSR, 8);
-         JTAG.SPI_Start_Read_Blocking (Data, 8);
-         for I in 1 .. 10 loop
-            JTAG.SPI_Read_Next_Blocking (Data, 8);
-         end loop;
-         -- Read_Last to shift to exit-dr
-         JTAG.SPI_Read_Last_Blocking (Data, 8);
-         JTAG.SPI_End_Transaction;
-         Pico.LED.Clear;
-
-         --  JTAG.Set_TX_Shift_Direction (JTAG.LSB_First);
-         --  JTAG.TAP_Reset;
-         --  JTAG.Set_TMS (False);
-         --  JTAG.Strobe_Blocking (1); -- RTI
-         --  JTAG.Set_TMS (True);
-         --  JTAG.Strobe_Blocking (2); -- Select-IR
-         --  JTAG.Set_TMS (False);
-         --  JTAG.Strobe_Blocking (2); -- Shift-IR
-         --  JTAG.Write_Last_Blocking (16#02#, 6, JTAG.LSB_First);
-         --  JTAG.Strobe_Blocking (1); -- Update-IR
-         --  JTAG.Set_TMS (False);
-         --  JTAG.Strobe_Blocking (1); -- RTI
-         --  JTAG.Set_TMS (True);
-         --  JTAG.Strobe_Blocking (1); -- Select-DR-Scan
-         --  JTAG.Set_TMS (False);
-         --  JTAG.Strobe_Blocking (2); -- Shift-Dr
-         --  JTAG.Set_TX_Shift_Direction (JTAG.MSB_First);
-         --  JTAG.Write_Blocking (16#9F00_0000#, 8);
-         --  JTAG.Read_Last_Blocking (Data, 25);
-         --  JTAG.Strobe_Blocking (1); -- Update-DR
-         --  JTAG.Set_TMS (False);
-         --  JTAG.Strobe_Blocking (1); -- RTI
+         Pico.LED.Toggle;
+         JTAG.Load_JProgram;
          Last_Button_Press := Clock;
       end if;
    end GPIO_Isr_Handler;
@@ -422,6 +388,8 @@ package body AdaBMP_FW is
             end loop;
          end;
       end if;
+      -- Tell host erase is done
+      Send_Ready;
       -- Wait for buffer to full if necessary
       while AU.Load (BC.Bytes_In) < 1024 loop
          null;
@@ -473,7 +441,7 @@ package body AdaBMP_FW is
                   return;
                end if;
                -- if flash isn't complete start new page write
-               if Bytes_Written < Data_Size then
+               if Bytes_Written_Total + Next_Write < Data_Size then
                   JTAG.SPI_Write_Command (WREN);
                   JTAG.SPI_Start_Transaction;
                   JTAG.Write_Blocking (PP or Cur_Address, 32);
@@ -529,6 +497,7 @@ package body AdaBMP_FW is
          return;
       end if;
       JTAG.SPI_Stop;
+      JTAG.Load_JProgram;
       Send_Command (Flash_Target_Complete);
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
@@ -573,7 +542,6 @@ package body AdaBMP_FW is
            (Pico.GP18, GPIO_Isr_Handler'Access);
          Pico.GP18.Enable_Interrupt (RP.GPIO.Falling_Edge);
          Pico.LED.Configure (RP.GPIO.Output);
-         JTAG.SPI_Start;
          loop
             null;
          end loop;

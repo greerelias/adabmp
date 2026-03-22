@@ -18,7 +18,7 @@ package body JTAG is
 
       Set_Sideset (Config, 1, False, False);
 
-      -- Shift out data LSB(left shift), auto pull 32 bits
+      -- Shift out data LSB(right shift), auto pull 32 bits
       Set_Out_Shift (Config, True, True, 32);
 
       -- Shift in data LSB(right shift), no auto push
@@ -184,10 +184,10 @@ package body JTAG is
       P.Set_Enabled (SM, False);
       case Dir is
          when LSB_First =>
-            Set_In_Shift (Config, True, True, 32);
+            Set_In_Shift (Config, True, False, 32);
 
          when MSB_First =>
-            Set_In_Shift (Config, False, True, 32);
+            Set_In_Shift (Config, False, False, 32);
       end case;
       P.SM_Initialize (SM, Program_Offset, Config); -- Init state machine
       P.Set_Enabled (SM, True);
@@ -199,20 +199,7 @@ package body JTAG is
       CFG_IN   : constant UInt32 := 16#5#;
    begin
       Set_TX_Shift_Direction (LSB_First);
-      TAP_Reset;
-      Set_TMS (False);
-      Strobe_Blocking (1); -- RTI
-      Set_TMS (True);
-      Strobe_Blocking (2); -- Select-IR
-      Set_TMS (False);
-      Strobe_Blocking (2); -- Shift-IR
-      Write_Last_Blocking (JProgram, 6, LSB_First); -- Write JProgram
-      TAP_Reset;
-      Set_TMS (False);
-      -- Clock for atleast 10ms in RTI
-      for I in 1 .. 32 loop
-         Strobe_Blocking (32);
-      end loop;
+      Load_JProgram;
       Set_TMS (True);
       Strobe_Blocking (2); -- Select-IR
       Set_TMS (False);
@@ -225,6 +212,26 @@ package body JTAG is
       Set_TX_Shift_Direction (MSB_First);
       -- FPGA is set up to receive bitstream
    end Setup_Configure_Target;
+
+   -- Clears FPGA configuration SRAM
+   procedure Load_JProgram is
+      JProgram : constant UInt32 := 16#B#;
+   begin
+      TAP_Reset;
+      Set_TMS (False);
+      Strobe_Blocking (1); -- RTI
+      Set_TMS (True);
+      Strobe_Blocking (2); -- Select-IR
+      Set_TMS (False);
+      Strobe_Blocking (2); -- Shift-IR
+      Write_Last_Blocking (JProgram, 6, LSB_First); -- Write JProgram
+      TAP_Reset;
+      Set_TMS (False);
+      -- Clock 10,000 cycles in RTI
+      for I in 1 .. 314 loop
+         Strobe_Blocking (32);
+      end loop;
+   end Load_JProgram;
 
    procedure Finish_Configure_Target is
       JStart : constant UInt32 := 16#C#;
@@ -241,8 +248,8 @@ package body JTAG is
       Write_Last_Blocking (JStart, 6, LSB_First); -- Write JStart
       Strobe_Blocking (1); -- Update-IR
       Set_TMS (False);
-      -- Clock for atleast 2ms in RTI
-      for I in 1 .. 7 loop
+      -- Clock 2000 cycles in RTI
+      for I in 1 .. 63 loop
          Strobe_Blocking (32);
       end loop;
       TAP_Reset;
@@ -312,6 +319,7 @@ package body JTAG is
    end SPI_Stop;
 
    -- Assume state is RTI and SPI_Start has been called
+   -- Ends in Shift-Dr
    procedure SPI_Start_Transaction is
    begin
       JTAG.Set_TMS (True);
@@ -321,6 +329,7 @@ package body JTAG is
    end SPI_Start_Transaction;
 
    -- Assume state is Exit-DR and SPI_Start has been called
+   -- Ends in RTI
    procedure SPI_End_Transaction is
    begin
       JTAG.Strobe_Blocking (1); -- Update-DR

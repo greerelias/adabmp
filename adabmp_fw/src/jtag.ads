@@ -31,6 +31,8 @@ package JTAG is
 
    procedure Finish_Configure_Target;
 
+   procedure Load_JProgram;
+
    procedure SPI_Read_Register
      (Cmd : UInt32; Data : in out UInt32; Length : UInt32);
 
