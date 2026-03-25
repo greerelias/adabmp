@@ -11,7 +11,6 @@ with RP2040_SVD.PIO;
 package JTAG is
 
    type Shift_Direction is (MSB_First, LSB_First);
-
    procedure Init;
 
    procedure Write_Blocking (Data : UInt32; Length : UInt32);
@@ -31,6 +30,35 @@ package JTAG is
    procedure Setup_Configure_Target;
 
    procedure Finish_Configure_Target;
+
+   procedure Load_JProgram;
+
+   procedure SPI_Read_Register
+     (Cmd : UInt32; Data : in out UInt32; Length : UInt32);
+
+   -- Write command only, CS set HIGH after write
+   procedure SPI_Write_Command (Cmd : UInt32);
+   -- Write command w/ address
+   procedure SPI_Write_Command (Cmd : UInt32; Address : UInt32);
+   -- Write command then read in one transaction
+   procedure SPI_Write_Read_Command
+     (Cmd : UInt32; Data : in out UInt32; Length : UInt32);
+   -- Send USER2 Code to entry SPI mode
+   procedure SPI_Start;
+   procedure SPI_Stop;
+   -- Assume state is RTI and SPI_Start has been called
+   procedure SPI_Start_Transaction;
+   -- Assume state is Exit-DR and SPI_Start has been called
+   procedure SPI_End_Transaction;
+   -- Assume state is Shift-Dr and SPI_Start has been called
+   -- Initiate a read were a single command results in multiple bytes returned
+   procedure SPI_Start_Read_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use only after SPI_Start_Read_Blocking to keep reading
+   procedure SPI_Read_Next_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use to finish read after SPI_Start_Read_Blocking or SPI_Read_Next_Blocking
+   procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use for single read up to full word
+   procedure SPI_Read_Once_Blocking (Data : in out UInt32; Length : UInt32);
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;

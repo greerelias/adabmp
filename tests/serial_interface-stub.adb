@@ -1,5 +1,4 @@
 with Ada.Streams; use Ada.Streams;
-with Packet_Formatter;
 with Commands;
 with Protocol;
 with Serial_Interface.Stub;
@@ -58,10 +57,36 @@ package body Serial_Interface.Stub is
                               Data_Length : Natural
                               with Address => Payload'Address;
                            begin
-                              Port.Bitstream_Size := Data_Length;
+                              Port.Data_Size := Data_Length;
                               Port.State :=
                                 Serial_Interface.Stub.Configuring_Target;
                               Send_Ready_Packet (Port);
+                           end;
+
+                        when Flash_Target     =>
+                           declare
+                              Payload          :
+                                constant Stream_Element_Array :=
+                                  Get_Payload (Decoded);
+                              Data_Length_Arr  : Stream_Element_Array (1 .. 4);
+                              Data_Length      : Natural
+                              with Address => Data_Length_Arr'Address;
+                              Base_Address_Arr : Stream_Element_Array (1 .. 4);
+                              Base_Address     : Natural
+                              with Address => Base_Address_Arr'Address;
+                           begin
+                              if Payload'Length >= 8 then
+                                 Data_Length_Arr :=
+                                   Payload
+                                     (Payload'First .. Payload'First + 3);
+                                 Base_Address_Arr :=
+                                   Payload
+                                     (Payload'First + 4 .. Payload'First + 7);
+                                 Port.Data_Size := Data_Length;
+                                 Port.State :=
+                                   Serial_Interface.Stub.Flashing_Target;
+                                 Send_Ready_Packet (Port);
+                              end if;
                            end;
 
                         when Start_UART       =>
@@ -72,6 +97,10 @@ package body Serial_Interface.Stub is
                            null;
                      end case;
                   end if;
+               exception
+                  when E : Protocol.Decode_Error =>
+                     -- ignore
+                     null;
                end;
 
             when Testing_Connection =>
@@ -89,15 +118,37 @@ package body Serial_Interface.Stub is
             when Configuring_Target =>
                -- Mock failure during write
                if Port.Fail_During_Write
-                 and then Port.Write_Count > Port.Bitstream_Size / 2
+                 and then Port.Write_Count > Port.Data_Size / 2
                then
-                  Port.State := Idle;
-               elsif Port.Write_Count >= Port.Bitstream_Size then
-                  -- Write complete
-                  Port.Write_Count := 0;
                   Port.State := Idle;
                else
                   Port.Write_Count := Port.Write_Count + Data'Length;
+                  if Port.Write_Count >= Port.Data_Size then
+                     -- Write complete
+                     Port.Send_Command_Packet (Configure_Target_Complete);
+                     Port.Write_Count := 0;
+                     Port.State := Idle;
+                     return;
+                  end if;
+                  -- Got data, tell host to send more
+                  Send_Ready_Packet (Port);
+               end if;
+
+            when Flashing_Target    =>
+               -- Mock failure during flash
+               if Port.Fail_During_Write
+                 and then Port.Write_Count > Port.Data_Size / 2
+               then
+                  Port.State := Idle;
+               else
+                  Port.Write_Count := Port.Write_Count + Data'Length;
+                  if Port.Write_Count >= Port.Data_Size then
+                     -- Write complete
+                     Port.Send_Command_Packet (Flash_Target_Complete);
+                     Port.Write_Count := 0;
+                     Port.State := Idle;
+                     return;
+                  end if;
                   -- Got data, tell host to send more
                   Send_Ready_Packet (Port);
                end if;
@@ -159,5 +210,18 @@ package body Serial_Interface.Stub is
       Final_Packet (Final_Packet'Last) := 0;
       Port.Set_Input (Final_Packet);
    end Send_Ready_Packet;
+
+   procedure Send_Command_Packet
+     (Port : in out Mock_Port; Command : in Packet_Formatter.Command_Id)
+   is
+      Ready_Packet  : Stream_Element_Array :=
+        Packet_Formatter.Make_Packet (Command, (1 .. 0 => 0)); -- Empty payload
+      Encoded_Ready : Stream_Element_Array := Protocol.Encode (Ready_Packet);
+      Final_Packet  : Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
+   begin
+      Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;
+      Final_Packet (Final_Packet'Last) := 0;
+      Port.Set_Input (Final_Packet);
+   end Send_Command_Packet;
 
 end Serial_Interface.Stub;

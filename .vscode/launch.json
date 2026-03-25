@@ -7,10 +7,11 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/adabmp",
             "args": [
-                "-ct",
-                "${workspaceFolder}/bin/blinky.bit"
+                "-ff",
+                "${workspaceFolder}/bin/neorv32_exe.bin",
+                "0x300000"
             ],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/bin",
             "preLaunchTask": "ada: Build current project",
             "miDebuggerPath": "/usr/bin/gdb",
             "stopAtEntry": true,
@@ -29,7 +30,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/test_runner_ts4",
             "args": [],
-            "cwd": "${workspaceFolder}/bin/",
+            "cwd": "${workspaceFolder}",
             "preLaunchTask": "ada: Build current project",
             "miDebuggerPath": "/usr/bin/gdb",
             "stopAtEntry": true,
@@ -53,7 +54,7 @@
         {
             "name": "Build and Debug tests",
             "configurations": [
-                "Debug test_runner (gdb)"
+                "Debug test_runner_ts6 (gdb)"
             ]
         }
     ]

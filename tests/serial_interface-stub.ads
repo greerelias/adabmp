@@ -1,10 +1,12 @@
 with Serial_Interface;
 with Ada.Streams;           use Ada.Streams;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Packet_Formatter;
 
 package Serial_Interface.Stub is
 
-   type Port_State is (Idle, Testing_Connection, Configuring_Target);
+   type Port_State is
+     (Idle, Testing_Connection, Configuring_Target, Flashing_Target);
    type Mock_Port is limited new Serial_Interface.Serial_Port with record
       Opened       : Boolean := False;
       Written_Data : Unbounded_String;
@@ -18,7 +20,7 @@ package Serial_Interface.Stub is
       Enabled      : Boolean := True;
 
       -- For Configure Target Test
-      Bitstream_Size    : Natural;
+      Data_Size         : Natural;
       Fail_During_Write : Boolean := False;
 
       -- For Board Info Test
@@ -50,4 +52,6 @@ package Serial_Interface.Stub is
 private
    procedure Send_Ready_Packet (Port : in out Mock_Port);
 
+   procedure Send_Command_Packet
+     (Port : in out Mock_Port; Command : in Packet_Formatter.Command_Id);
 end Serial_Interface.Stub;
