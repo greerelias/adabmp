@@ -1,4 +1,5 @@
 with Commands; use Commands;
+with HAL.Block_Drivers;
 with RP.Device;
 with RP.Clock;
 with RP.Uart;  use RP.Uart;
@@ -291,35 +292,26 @@ package body AdaBMP_FW is
    procedure Run_Flash_Target
      (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array)
    is
+      Last_Read           : Time;
       Data_Size           : UInt32
       with Address => Size'Address;
       Address             : Uint32
       with Address => Base_Addr'Address;
       Data                : UInt32_Array (1 .. 16);
       Cur_Address         : UInt32 := Address;
-      Last_Read           : Time;
       Bytes_Written_Total : UInt32 := 0;
       Bytes_Written       : UInt32 := 0;
       Page_Written        : UInt32 := 0;
-      -- Flash Memory Commands
-      -- Commands are 1 byte (sent MSB First)
-      WREN                : constant UInt32 := 16#06#; -- Write Enable
-      BE                  : constant UInt32 := 16#D8#; -- Block Erase
-      SE                  : constant UInt32 := 16#20#; -- Sector Erase
-      Block_Size          : constant UInt32 := 16#1_0000#; -- 64KB
-      Sector_Size         : constant UInt32 := 16#1000#; -- 4KB
-      Page_Size           : constant UInt32 := 16#100#; -- 256 bytes
       Error_Timeout       : constant Time := 1_000_000; -- 1s
-
-      -- Read Status Cmd right padded full word because we are using
-      -- JTAG.Write_Blocking so we can continously read the status reg
-      RDSR : constant UInt32 := 16#0500_0000#;
-      PP   : constant UInt32 := 16#0200_0000#; -- Page Program
+      End_Address         : constant UInt32 := Address + Data_Size;
+      Start_Threshold     : constant Unsigned_32 :=
+        (if Data_Size > 1024 then 1024 else Unsigned_32 (Data_Size));
 
       package AU renames Atomic.Unsigned_32;
       package BC renames Byte_Counter;
 
       -- Check WIP bit of status register (bit 0)
+      -- return True when WIP bit = 0,
       function Wait_Write_In_Progress return Boolean is
          Status : UInt32 := 1;
          Start  : Time;
@@ -363,7 +355,7 @@ package body AdaBMP_FW is
                JTAG.SPI_Write_Command (BE, Cur_Address);
                Cur_Address := Cur_Address + Block_Size;
                -- Wait for Block erase
-               RP.Device.Timer.Delay_Milliseconds (325);
+               RP.Device.Timer.Delay_Milliseconds (BE_Wait);
                if not Wait_Write_In_Progress then
                   return;
                end if;
@@ -371,16 +363,21 @@ package body AdaBMP_FW is
          end;
       end if;
       -- Erase 4kb sectors
-      if Cur_Address < Address + Data_Size then
+      if Cur_Address < End_Address then
          declare
-            Sectors : constant UInt32 := Address + Data_Size;
+            Partial_Sector : constant UInt32 :=
+              (End_Address - Cur_Address) mod Sector_Size;
+            Sectors        : constant UInt32 :=
+              (if Partial_Sector > 0
+               then End_Address - Partial_Sector + Sector_Size
+               else End_Address);
          begin
             while Cur_Address < Sectors loop
                JTAG.SPI_Write_Command (WREN);
                JTAG.SPI_Write_Command (SE, Cur_Address);
                Cur_Address := Cur_Address + Sector_Size;
                -- Wait for Sector Erase
-               RP.Device.Timer.Delay_Milliseconds (27);
+               RP.Device.Timer.Delay_Milliseconds (SE_Wait);
                if not Wait_Write_In_Progress then
                   return;
                end if;
@@ -390,7 +387,8 @@ package body AdaBMP_FW is
       -- Tell host erase is done
       Send_Ready;
       -- Wait for buffer to full if necessary
-      while AU.Load (BC.Bytes_In) < 1024 loop
+
+      while AU.Load (BC.Bytes_In) < Start_Threshold loop
          null;
       end loop;
 
@@ -404,7 +402,8 @@ package body AdaBMP_FW is
       while USB_Serial.List_Ctrl_State.DTE_Is_Present
         and Bytes_Written_Total < Data_Size
       loop
-         if Bytes_Written >= 512 then
+         if Bytes_Written >= 512 and Bytes_Written_Total < (Data_Size - 512)
+         then
             Send_Ready;
             Bytes_Written := 0;
          end if;
@@ -413,24 +412,18 @@ package body AdaBMP_FW is
          USB_Serial.Read (Data'Address, Length);
          Last_Read := Clock;
          if Length > 0 then
-            -- SPI page writer: shift 32-bit words and close a transaction
-            -- on page boundary or final word of full transfer.
-            if (Length mod 4) /= 0 then
-               return;
-            end if;
-
             declare
                Words : constant Integer := Integer (Length / 4);
             begin
                for I in 1 .. Words loop
                   declare
-                     Is_Last_Page_Word   : constant Boolean :=
+                     Is_Last_Page_Word : constant Boolean :=
                        Page_Written + 4 = Page_Size;
-                     Is_Last_Global_Word : constant Boolean :=
+                     Is_Last_Word      : constant Boolean :=
                        Bytes_Written_Total + 4 = Data_Size;
                   begin
                      Pico.LED.Set;
-                     if Is_Last_Page_Word or Is_Last_Global_Word then
+                     if Is_Last_Page_Word or Is_Last_Word then
                         -- CS must be set high on final bit of page/final word
                         JTAG.Write_Last_Blocking
                           (Reverse_Bytes (Data (I)), 32, JTAG.MSB_First);
@@ -476,6 +469,7 @@ package body AdaBMP_FW is
       if not Wait_Write_In_Progress then
          return;
       end if;
+      Pico.LED.Set;
       JTAG.SPI_Stop;
       -- Restart FPGA to load from flash
       JTAG.Load_JProgram;
@@ -542,7 +536,7 @@ package body AdaBMP_FW is
                   exception
                      when Decode_Error =>
                         -- Error in packet encoding
-                        null;
+                        USB_Serial.Clear_Buffers;
                   end;
                end if;
             end if;

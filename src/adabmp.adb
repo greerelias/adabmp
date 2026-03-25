@@ -5,6 +5,7 @@ with Board_Info;
 with Commands;
 with Board_Info_Printer;
 with Configure_Target;
+with Interfaces;
 with Protocol;
 with Serial_Interface.Impl;
 with Device_Discovery;
@@ -288,6 +289,94 @@ procedure Adabmp is
          end if;
    end Run_Flash_Bitstream;
 
+   procedure Run_Flash_Firmware (Path : String; Address_Str : String := "") is
+      use type Interfaces.Unsigned_32;
+      Port_Name : String (1 .. 100);
+      Port_Len  : Natural := 0;
+      Port      : Serial_Interface.Impl.Com_Port;
+      Success   : Boolean := False;
+      Address   : Interfaces.Unsigned_32;
+   begin
+      if Address_Str = "" then
+         Address := 16#300000#;
+      else
+         begin
+            if Address_Str'Length > 2
+              and then
+                (Address_Str (Address_Str'First .. Address_Str'First + 1)
+                 = "0x"
+                 or else
+                   Address_Str (Address_Str'First .. Address_Str'First + 1)
+                   = "0X")
+            then
+               Address :=
+                 Interfaces.Unsigned_32'Value
+                   ("16#"
+                    & Address_Str (Address_Str'First + 2 .. Address_Str'Last)
+                    & "#");
+            else
+               Address := Interfaces.Unsigned_32'Value (Address_Str);
+            end if;
+         exception
+            when Constraint_Error =>
+               Put_Line
+                 ("Error: '"
+                  & Address_Str
+                  & "' is not a valid decimal or hex number.");
+               return;
+         end;
+      end if;
+
+      if Address mod Interfaces.Unsigned_32'(16#10000#) /= 0 then
+         Put_Line ("Error: Address must be 64KB aligned.");
+         return;
+      end if;
+
+      -- TODO: move getting port name/opening port into their own functions
+      -- this code is repeated multiple times
+      ---------------------------------------------------------------------------------
+      begin
+         declare
+            Found : constant String :=
+              Device_Discovery.Find_Device (Target_VID, Target_PID);
+         begin
+            if Found'Length > Port_Name'Length then
+               Put_Line ("Error: Port name too long.");
+               return;
+            end if;
+            Port_Name (1 .. Found'Length) := Found;
+            Port_Len := Found'Length;
+         end;
+      exception
+         when Device_Discovery.Device_Not_Found =>
+            Put_Line ("Error: Device not found.");
+            return;
+      end;
+
+      begin
+         Port.Open (Port_Name (1 .. Port_Len));
+      exception
+         when others =>
+            Put_Line ("Error: Failed to open serial port.");
+            return;
+      end;
+      Flash_Target.Flash_Firmware (Port, Path, Success, Address, True);
+      Port.Close;
+   exception
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
+         if Port_Len > 0 then
+            begin
+               Port.Close;
+            exception
+               when others =>
+                  null;
+            end;
+         end if;
+   end Run_Flash_Firmware;
+
 begin
    if Argument_Count = 0 then
       Put_Line ("--- Commands ---");
@@ -308,6 +397,14 @@ begin
       Run_UART;
    elsif Argument (1) = "-fb" and then Argument_Count > 1 then
       Run_Flash_Bitstream (Argument (2));
+   elsif Argument (1) = "-ff" and then Argument_Count > 1 then
+      if Argument_Count > 2 then
+         Run_Flash_Firmware (Argument (2), Argument (3));
+      else
+         Put_Line
+           ("No base address provided, defaulting to 0x300000." & ASCII.LF);
+         Run_Flash_Firmware (Argument (2));
+      end if;
    else
       Put_Line ("Unknown argument: " & Argument (1));
    end if;

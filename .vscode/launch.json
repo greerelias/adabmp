@@ -7,8 +7,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/adabmp",
             "args": [
-                "-fb",
-                "${workspaceFolder}/bin/blinky.bit"
+                "-ff",
+                "${workspaceFolder}/bin/neorv32_exe.bin",
+                "0x300000"
             ],
             "cwd": "${workspaceFolder}/bin",
             "preLaunchTask": "ada: Build current project",

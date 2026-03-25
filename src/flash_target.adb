@@ -359,13 +359,12 @@ package body Flash_Target is
 
       TIO.Put_Line ("Starting erase...");
       delay (Get_Erase_Delay (Data_Size));
-      TIO.Put_Line ("Done.");
 
       if not Protocol.Receive_Ready_Packet (Port) then
          TIO.Put_Line ("Failure: Error during flash erase.");
          return;
       end if;
-
+      TIO.Put_Line ("Done.");
       if Verbose then
          Progress_Bar.Start;
       end if;
@@ -388,17 +387,27 @@ package body Flash_Target is
       --  TIO.Put_Line ("Bytes sent" & Bytes_Sent'Image);
       Close (Input_File);
       Protocol.Receive_Packet (Port, Data, Length);
-      declare
-         Packet : constant Stream_Element_Array := Data (1 .. Length);
-      begin
-         if not Is_Valid (Packet)
-           and then Get_Command (Packet) /= Commands.Flash_Target_Complete
-         then
-            TIO.Put_Line
-              ("Failure: Did not receive flash target complete from programmer");
-            return;
-         end if;
-      end;
+      if Length > 0 then
+         declare
+            Packet : constant Stream_Element_Array := Data (1 .. Length);
+         begin
+            if Is_Valid (Packet)
+              and then Get_Command (Packet) /= Commands.Flash_Target_Complete
+            then
+               Progress_Bar.Stop (False);
+               TIO.Put_Line
+                 (Ada.Characters.Latin_1.LF
+                  & "Failure: Did not receive flash target complete from programmer");
+               return;
+            end if;
+         end;
+      else
+         Progress_Bar.Stop (False);
+         TIO.Put_Line
+           (Ada.Characters.Latin_1.LF
+            & "Failure: Did not receive flash target complete from programmer");
+         return;
+      end if;
       Success := True;
       Progress_Bar.Stop;
 
