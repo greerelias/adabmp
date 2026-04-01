@@ -1,5 +1,6 @@
 with "config/adabmp_fw_config.gpr";
 with "pico_bsp.gpr";
+with "rp2040_hal.gpr";
 
 project Adabmp_Fw is
    for Target use "arm-eabi";
@@ -9,6 +10,18 @@ project Adabmp_Fw is
    for Create_Missing_Dirs use "True";
    for Exec_Dir use "bin";
    for Main use ("main.adb");
+
+   Linker_Script := "ld/memmap_adabmp.ld";
+   Linker_Switches := (
+                       "-T", Linker_Script
+                      ) &
+     Rp2040_Hal.Boot_Stage_2 &
+   (
+    "-Wl,--no-warn-rwx-segments",
+    "-Wl,--no-warn-execstack",
+    "-Wl,--print-memory-usage", 
+    "-Wl,-Map=firmware.map"     
+   );
 
    package Compiler is
       for Default_Switches ("Ada") use Adabmp_Fw_Config.Ada_Compiler_Switches;
@@ -23,7 +36,7 @@ project Adabmp_Fw is
    end Install;
 
    package Linker is
-      for Switches ("Ada") use pico_bsp.linker_switches;
+      for Switches ("Ada") use Linker_Switches;
    end Linker;
 
 end Adabmp_Fw;
