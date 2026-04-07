@@ -93,7 +93,14 @@ package body AdaBMP_FW is
             Send_Board_Info;
 
          when Configure_Target    =>
-            Run_Configure_Target (Get_Payload (Cmd_Packet));
+            declare
+               Payload : UInt8_Array := Get_Payload (Cmd_Packet);
+            begin
+               if Payload'Length >= 4 then
+                  File_Size := Payload (Payload'First .. Payload'First + 3);
+                  Run_Configure_Target;
+               end if;
+            end;
 
          when Start_UART          =>
             Run_UART;
@@ -103,7 +110,7 @@ package body AdaBMP_FW is
                Payload : UInt8_Array := Get_Payload (Cmd_Packet);
             begin
                if Payload'Length >= 8 then
-                  Flash_Size := Payload (Payload'First .. Payload'First + 3);
+                  File_Size := Payload (Payload'First .. Payload'First + 3);
                   Flash_Base_Addr :=
                     Payload (Payload'First + 4 .. Payload'First + 7);
                   Run_Flash_Target;
@@ -180,9 +187,35 @@ package body AdaBMP_FW is
       end if;
    end Send_Board_Info;
 
-   procedure Run_Configure_Target (Size : UInt8_Array) is
+   procedure Run_Configure_Target is
+      VTOR          : constant System.Address :=
+        To_Address (Integer_Address (RP2040_SVD.PPB.PPB_Periph.VTOR.TBLOFF));
+      Stack_One_Top : HAL.UInt32
+      with Import, External_Name => "__StackOneTop";
+      MSG           : UInt32 := 0;
+      use RP.Multicore;
+      use RP.Multicore.FIFO;
+   begin
+      Reset_Core1;
+      Launch_Core1
+        (Trap_Vector   =>
+           VTOR,                  --  Use the same vector table as Core 0
+         Stack_Pointer => Stack_One_Top'Address, --  Initial stack pointer (SP)
+         Entry_Point   => Run_Configure_Target_C1'Address);
+      loop
+         MSG := Pop_Blocking;
+         if MSG = 1 then
+            Send_Ready;
+         elsif MSG = 2 then
+            Send_Command (Configure_Target_Complete);
+            return;
+         end if;
+      end loop;
+   end Run_Configure_Target;
+
+   procedure Run_Configure_Target_C1 is
       Bs_Size             : UInt32
-      with Address => Size'Address;
+      with Address => File_Size'Address;
       Data                : UInt32_Array (1 .. 16);
       Bytes_Written_Total : UInt32 := 0;
       Bytes_Written       : UInt32 := 0;
@@ -190,17 +223,17 @@ package body AdaBMP_FW is
       Last_Read           : Time;
       package AU renames Atomic.Unsigned_32;
       package BC renames Byte_Counter;
+      use RP.Multicore.FIFO;
    begin
       -- Clear Rx buffer and byte count
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
-      Send_Ready;
+      Push_Blocking (1); -- send ready
       -- Wait for buffer to fill
       while AU.Load (BC.Bytes_In) < 1024 loop
          null;
       end loop;
       JTAG.Setup_Configure_Target;
-      Pico.Led.Clear;
       while USB_Serial.List_Ctrl_State.DTE_Is_Present
         and Bytes_Written_Total < Bs_Size
       loop
@@ -225,7 +258,7 @@ package body AdaBMP_FW is
          if Bytes_Written >= 512 and then Bytes_Written_Total < Bs_Size - 512
          then
             Bytes_Written := 0;
-            Send_Ready; -- Tell host to send next 512 bytes
+            Push_Blocking (1); -- send ready for more data
 
          end if;
          if Clock - Last_Read > Error_Timeout then
@@ -234,10 +267,10 @@ package body AdaBMP_FW is
       end loop;
 
       JTAG.Finish_Configure_Target;
-      Send_Command (Configure_Target_Complete);
+      Push_Blocking (2);
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
-   end Run_Configure_Target;
+   end Run_Configure_Target_C1;
 
    procedure Run_UART is
       UART      : RP.UART.UART_Port renames RP.Device.UART_0;
@@ -301,6 +334,7 @@ package body AdaBMP_FW is
       use RP.Multicore;
       use RP.Multicore.FIFO;
    begin
+      Reset_Core1;
       Launch_Core1
         (Trap_Vector   =>
            VTOR,                  --  Use the same vector table as Core 0
@@ -320,7 +354,7 @@ package body AdaBMP_FW is
    procedure Run_Flash_Target_C1 is
       Last_Read           : Time;
       Data_Size           : UInt32
-      with Address => Flash_Size'Address;
+      with Address => File_Size'Address;
       Address             : Uint32
       with Address => Flash_Base_Addr'Address;
       Data                : UInt32_Array (1 .. 16);
