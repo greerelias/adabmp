@@ -41,6 +41,8 @@ package AdaBMP_FW is
    Data    : HAL.UInt32
    with Address => USB_Rx'Address;
 
+   Flash_Size      : HAL.UInt8_Array (1 .. 4);
+   Flash_Base_Addr : HAL.UInt8_Array (1 .. 4);
 private
    procedure Send_Programmer_Info;
 
@@ -49,8 +51,8 @@ private
    procedure Send_Board_Info;
 
    procedure Run_Configure_Target (Size : HAL.UInt8_Array);
-   procedure Run_Flash_Target
-     (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array);
+   procedure Run_Flash_Target;
+   procedure Run_Flash_Target_C1;
    procedure Send_Ready;
    procedure Send_Command (Command : Command_Id);
    procedure Handle_Command (Cmd_Packet : HAL.UInt8_Array);

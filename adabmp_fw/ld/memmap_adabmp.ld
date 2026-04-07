@@ -69,7 +69,7 @@ SECTIONS
          * FLASH ... we will include any thing excluded here in .data below by default */
         /* added usb and jtag functions to exlude list so they live in ram" */
         *(.init)
-        *(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a: *usb*.o *jtag*.o *bbqueue*.o *pio*.o) .text*)
+        *(EXCLUDE_FILE(*libgcc.a: *libc.a:*lib_a-mem*.o *libm.a: *usb*.o *jtag*.o *bbqueue*.o *pio*.o *adabmp_fw*.o) .text*)
         *(.fini)
         /* Pull all c'tors into .text */
         *crtbegin.o(.ctors)

@@ -2,7 +2,7 @@
     "version": "1.0.0",
     "configurations": [
         {
-            "name": "Attach Debug",
+            "name": "Attach DB Core0",
             "type": "cortex-debug",
             "request": "attach",
             "servertype": "openocd",
@@ -26,6 +26,36 @@
             ],
             "openOCDLaunchCommands": [
                 "targets rp2040.core0"
+            ],
+            "postAttachCommands": [
+                "set output-radix 16"
+            ]
+        },
+        {
+            "name": "Attach DB Core1",
+            "type": "cortex-debug",
+            "request": "attach",
+            "servertype": "openocd",
+            "gdbPath": "gdb-multiarch",
+            "executable": "./bin/main",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/rp2040.cfg"
+            ],
+            "showDevDebugOutput": "raw",
+            "svdFile": "./RP2040.svd",
+            "postRestartCommands": [
+                "continue"
+            ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4 // Adjust as needed for refresh rate
+            },
+            "openOCDPreConfigLaunchCommands": [
+                "adapter speed 1000"
+            ],
+            "openOCDLaunchCommands": [
+                "targets rp2040.core1"
             ],
             "postAttachCommands": [
                 "set output-radix 16"

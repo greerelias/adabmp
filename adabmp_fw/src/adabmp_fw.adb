@@ -4,19 +4,22 @@ with RP.Device;
 with RP.Clock;
 with RP.Uart;  use RP.Uart;
 with Pico;
+with RP2040_SVD.PPB;
 
-
-with HAL;                 use HAL;
+with HAL;                     use HAL;
 with RP.GPIO;
 with RP.GPIO.Interrupts;
-with RP.Timer;            use RP.Timer;
-with Protocol;            use Protocol;
+with RP.Timer;                use RP.Timer;
+with Protocol;                use Protocol;
 with JTAG;
-with USB_Int;             use USB_Int;
+with USB_Int;                 use USB_Int;
 with Atomic.Unsigned_32;
-with Byte_Counter;        use Byte_Counter;
-with Interfaces;          use Interfaces;
-with System.Machine_Code; use System.Machine_Code;
+with Byte_Counter;            use Byte_Counter;
+with Interfaces;              use Interfaces;
+with System.Machine_Code;     use System.Machine_Code;
+with RP.Multicore;
+with RP.Multicore.FIFO;
+with System.Storage_Elements; use System.Storage_Elements;
 
 package body AdaBMP_FW is
    -- For testing w/ external button
@@ -100,9 +103,10 @@ package body AdaBMP_FW is
                Payload : UInt8_Array := Get_Payload (Cmd_Packet);
             begin
                if Payload'Length >= 8 then
-                  Run_Flash_Target
-                    (Payload (Payload'First .. Payload'First + 3),
-                     Payload (Payload'First + 4 .. Payload'First + 7));
+                  Flash_Size := Payload (Payload'First .. Payload'First + 3);
+                  Flash_Base_Addr :=
+                    Payload (Payload'First + 4 .. Payload'First + 7);
+                  Run_Flash_Target;
                end if;
             end;
 
@@ -211,7 +215,6 @@ package body AdaBMP_FW is
                   -- Last word requires special handling
                   JTAG.Write_Last_Blocking
                     (Reverse_Bytes (Data (I)), 32, JTAG.MSB_First);
-                  Pico.LED.Set;
                   exit;
                else
                   JTAG.Write_Blocking (Reverse_Bytes (Data (I)), 32);
@@ -289,14 +292,37 @@ package body AdaBMP_FW is
       end loop;
    end Run_UART;
 
-   procedure Run_Flash_Target
-     (Size : Hal.UInt8_Array; Base_Addr : HAL.UInt8_Array)
-   is
+   procedure Run_Flash_Target is
+      VTOR          : constant System.Address :=
+        To_Address (Integer_Address (RP2040_SVD.PPB.PPB_Periph.VTOR.TBLOFF));
+      Stack_One_Top : HAL.UInt32
+      with Import, External_Name => "__StackOneTop";
+      MSG           : UInt32 := 0;
+      use RP.Multicore;
+      use RP.Multicore.FIFO;
+   begin
+      Launch_Core1
+        (Trap_Vector   =>
+           VTOR,                  --  Use the same vector table as Core 0
+         Stack_Pointer => Stack_One_Top'Address, --  Initial stack pointer (SP)
+         Entry_Point   => Run_Flash_Target_C1'Address);
+      loop
+         MSG := Pop_Blocking;
+         if MSG = 1 then
+            Send_Ready;
+         elsif MSG = 2 then
+            Send_Command (Flash_Target_Complete);
+            return;
+         end if;
+      end loop;
+   end Run_Flash_Target;
+
+   procedure Run_Flash_Target_C1 is
       Last_Read           : Time;
       Data_Size           : UInt32
-      with Address => Size'Address;
+      with Address => Flash_Size'Address;
       Address             : Uint32
-      with Address => Base_Addr'Address;
+      with Address => Flash_Base_Addr'Address;
       Data                : UInt32_Array (1 .. 16);
       Cur_Address         : UInt32 := Address;
       Bytes_Written_Total : UInt32 := 0;
@@ -309,6 +335,7 @@ package body AdaBMP_FW is
 
       package AU renames Atomic.Unsigned_32;
       package BC renames Byte_Counter;
+      use RP.Multicore.FIFO;
 
       -- Check WIP bit of status register (bit 0)
       -- return True when WIP bit = 0,
@@ -339,9 +366,7 @@ package body AdaBMP_FW is
       end if;
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
-      Send_Ready;
-      Pico.LED.Set;
-      Pico.GP0.Set;
+      Push_Blocking (1); -- Send Ready
       JTAG.SPI_Start;
       -- Send Write Enable
       -- Erase 64kb Blocks
@@ -355,8 +380,9 @@ package body AdaBMP_FW is
                JTAG.SPI_Write_Command (BE, Cur_Address);
                Cur_Address := Cur_Address + Block_Size;
                -- Wait for Block erase
-               RP.Device.Timer.Delay_Milliseconds (BE_Wait);
+               --  RP.Device.Timer.Delay_Milliseconds (BE_Wait);
                if not Wait_Write_In_Progress then
+                  Pico.LED.Set;
                   return;
                end if;
             end loop;
@@ -377,23 +403,23 @@ package body AdaBMP_FW is
                JTAG.SPI_Write_Command (SE, Cur_Address);
                Cur_Address := Cur_Address + Sector_Size;
                -- Wait for Sector Erase
-               RP.Device.Timer.Delay_Milliseconds (SE_Wait);
+               --  RP.Device.Timer.Delay_Milliseconds (SE_Wait);
                if not Wait_Write_In_Progress then
+                  Pico.LED.Set;
                   return;
                end if;
             end loop;
          end;
       end if;
       -- Tell host erase is done
-      Send_Ready;
+      Push_Blocking (1); -- Send Ready
       -- Wait for buffer to full if necessary
 
       while AU.Load (BC.Bytes_In) < Start_Threshold loop
          null;
       end loop;
 
-      Pico.GP0.Clear;
-      Pico.LED.Clear;
+      Pico.LED.Set;
       -- Initiate first page program
       Cur_Address := Address;
       JTAG.SPI_Write_Command (WREN);
@@ -404,7 +430,7 @@ package body AdaBMP_FW is
       loop
          if Bytes_Written >= 512 and Bytes_Written_Total < (Data_Size - 512)
          then
-            Send_Ready;
+            Push_Blocking (1); -- Send Ready
             Bytes_Written := 0;
          end if;
          Length := 64;
@@ -469,14 +495,13 @@ package body AdaBMP_FW is
       if not Wait_Write_In_Progress then
          return;
       end if;
-      Pico.LED.Set;
       JTAG.SPI_Stop;
       -- Restart FPGA to load from flash
       JTAG.Load_JProgram;
-      Send_Command (Flash_Target_Complete);
+      Push_Blocking (2);
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
-   end Run_Flash_Target;
+   end Run_Flash_Target_C1;
 
    procedure Send_Ready is
       Packet : constant UInt8_Array :=
