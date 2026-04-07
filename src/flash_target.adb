@@ -14,6 +14,9 @@ with Commands;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Characters.Latin_1;
 with Ada.Directories;
+with Progress_Bar;
+use type Progress_Bar.Volatile_Integer;
+
 
 package body Flash_Target is
    package TIO renames Ada.Text_IO;
@@ -30,111 +33,20 @@ package body Flash_Target is
       Bitstream_Size     : Stream_Element_Array (1 .. 4);
       Bitstream_Size_U32 : Unsigned_32
       with Address => Bitstream_Size'Address;
-      Total              : Integer;
-      Bytes_Sent         : Integer := 0
-      with Volatile;
-      Bar_Width          : constant Integer := 40;
+      Total              : aliased Progress_Bar.Volatile_Integer;
+      Bytes_Sent         : aliased Progress_Bar.Volatile_Integer := 0;
       Rx_Buffer          : Stream_Element_Array (1 .. 64);
       Rx_Last            : Stream_Element_Offset;
 
 
-      task Progress_Bar is
-         entry Start;
-         entry Stop (Success : Boolean := True);
-      end Progress_Bar;
-
-      task body Progress_Bar is
-         Running : Boolean := True;
-         procedure Update is
-            Percent      : Float;
-            Filled_Count : Integer;
-            Empty_Count  : Integer;
-            Bar          : String (1 .. Bar_Width);
-         begin
-            if Total = 0 then
-               Percent := 100.0;
-            else
-               Percent := (Float (Bytes_Sent) / Float (Total)) * 100.0;
-            end if;
-
-            Filled_Count := Integer (Float (Bar_Width) * (Percent / 100.0));
-            if Filled_Count > Bar_Width then
-               Filled_Count := Bar_Width;
-            end if;
-            Empty_Count := Bar_Width - Filled_Count;
-
-            if Filled_Count > 0 then
-               Move
-                 (Source => (1 .. Filled_Count => '='),
-                  Target => Bar (1 .. Filled_Count));
-               if Filled_Count < Bar_Width then
-                  Bar (Filled_Count) := '>';
-               end if;
-            end if;
-
-            if Empty_Count > 0 then
-               Bar (Filled_Count + 1 .. Bar_Width) := (others => ' ');
-            end if;
-
-            TIO.Put
-              (Ada.Characters.Latin_1.CR
-               & "["
-               & Bar
-               & "] "
-               & Integer (Percent)'Image
-               & "% ");
-            TIO.Flush;
-         end Update;
-      begin
-         select
-            accept Start do
-               TIO.Put_Line ("Configuring Target for SPI over JTAG...");
-            end Start;
-         or
-            accept Stop (Success : Boolean := True);
-            Running := False;
-         or
-            terminate;
-         end select;
-
-         while Bytes_Sent <= Total and Running loop
-            select
-               accept Stop (Success : Boolean := True) do
-                  Update; -- Ensure final status is printed
-                  Running := False;
-                  if Success then
-                     TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Configuration Complete.");
-                  end if;
-               end Stop;
-            or
-               delay 0.050;
-               Update;
-            end select;
-         end loop;
-
-         -- Consume any final Stop signal if we exited due to completion
-         if Running then
-            select
-               accept Stop (Success : Boolean := True) do
-                  Update; -- Ensure final status is printed
-                  if Success then
-                     TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Configuration Complete.");
-                  end if;
-               end Stop;
-            or
-               terminate;
-            end select;
-         end if;
-      end Progress_Bar;
+      Bar_Task : Progress_Bar.Bar_Task;
    begin
 
       Success := False;
       Bitstream_Header := Bitstream_Parser.Parse_Header (Path);
       -- TODO add checks for fpga part #
       Bitstream_Size_U32 := Bitstream_Header.Data_Length;
-      Total := Integer (Bitstream_Size_U32);
+      Total := Progress_Bar.Volatile_Integer (Bitstream_Size_U32);
       Open (Bitstream, In_File, Path);
       Set_Index (Bitstream, Bitstream_Header.Data_Offset);
       -- Send configure target command and bitstream size
@@ -152,21 +64,26 @@ package body Flash_Target is
       end if;
       -- TODO: make status message optional
       if Verbose then
-         Progress_Bar.Start;
+         Bar_Task.Start
+           ("Configuring Target for SPI over JTAG...",
+            "Configuration Complete.",
+            Total'Unchecked_Access,
+            Bytes_Sent'Unchecked_Access,
+            False);
       end if;
       -- Write first 1KB
       Read (Bitstream, Data, Length);
       Port.Write (Data (1 .. Length));
-      Bytes_Sent := Integer (Length);
+      Bytes_Sent := Progress_Bar.Volatile_Integer (Length);
       Read (Bitstream, Data, Length);
       Port.Write (Data (1 .. Length));
-      Bytes_Sent := Bytes_Sent + Integer (Length);
+      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
 
       while not End_Of_File (Bitstream) loop
          -- Wait for response from programmer to send more
          if not Protocol.Receive_Ready_Packet (Port) then
             -- Fail on no response
-            Progress_Bar.Stop (False);
+            Bar_Task.Stop (False);
             TIO.Put_Line
               (Ada.Characters.Latin_1.LF
                & "Failure: No response from programmer during write.");
@@ -176,7 +93,7 @@ package body Flash_Target is
          -- Write 512B
          Read (Bitstream, Data, Length);
          Port.Write (Data (1 .. Length));
-         Bytes_Sent := Bytes_Sent + Integer (Length);
+         Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
       end loop;
       --  TIO.Put_Line ("Bytes sent" & Bytes_Sent'Image);
       Close (Bitstream);
@@ -187,7 +104,7 @@ package body Flash_Target is
          if Is_Valid (Packet)
            and then Get_Command (Packet) /= Commands.Configure_Target_Complete
          then
-            Progress_Bar.Stop (False);
+            Bar_Task.Stop (False);
             TIO.Put_Line
               (Ada.Characters.Latin_1.LF
                & "Failure: Did not receive configure complete from programmer");
@@ -195,7 +112,7 @@ package body Flash_Target is
          end if;
       end;
       Success := True;
-      Progress_Bar.Stop;
+      Bar_Task.Stop;
 
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
@@ -206,7 +123,7 @@ package body Flash_Target is
          if Is_Open (Bitstream) then
             Close (Bitstream);
          end if;
-         Progress_Bar.Stop (False);
+         Bar_Task.Stop (False);
          raise;
    end Load_SPI_Over_Jtag;
 
@@ -226,113 +143,17 @@ package body Flash_Target is
       with Address => Data_Size'Address;
       Base_Address_Arr : Stream_Element_Array (1 .. 4)
       with Address => Base_Address'Address;
-      Total            : Integer;
-      Bytes_Sent       : Integer := 0
-      with Volatile;
-      Bar_Width        : constant Integer := 40;
+      Total            : aliased Progress_Bar.Volatile_Integer;
+      Bytes_Sent       : aliased Progress_Bar.Volatile_Integer := 0;
       Rx_Buffer        : Stream_Element_Array (1 .. 64);
       Rx_Last          : Stream_Element_Offset;
 
-      task Progress_Bar is
-         entry Start;
-         entry Stop (Success : Boolean := True);
-      end Progress_Bar;
-
-      task body Progress_Bar is
-         Running : Boolean := True;
-         procedure Update is
-            Percent      : Float;
-            Filled_Count : Integer;
-            Empty_Count  : Integer;
-            Bar          : String (1 .. Bar_Width);
-         begin
-            if Total = 0 then
-               Percent := 100.0;
-            else
-               Percent := (Float (Bytes_Sent) / Float (Total)) * 100.0;
-            end if;
-
-            Filled_Count := Integer (Float (Bar_Width) * (Percent / 100.0));
-            if Filled_Count > Bar_Width then
-               Filled_Count := Bar_Width;
-            end if;
-            Empty_Count := Bar_Width - Filled_Count;
-
-            if Filled_Count > 0 then
-               Move
-                 (Source => (1 .. Filled_Count => '='),
-                  Target => Bar (1 .. Filled_Count));
-               if Filled_Count < Bar_Width then
-                  Bar (Filled_Count) := '>';
-               end if;
-            end if;
-
-            if Empty_Count > 0 then
-               Bar (Filled_Count + 1 .. Bar_Width) := (others => ' ');
-            end if;
-
-            TIO.Put
-              (Ada.Characters.Latin_1.CR
-               & "["
-               & Bar
-               & "] "
-               & Integer (Percent)'Image
-               & "% "
-               & "("
-               & Bytes_Sent'Image
-               & " /"
-               & Total'Image
-               & " bytes)");
-            TIO.Flush;
-         end Update;
-      begin
-         select
-            accept Start do
-               TIO.Put_Line ("Flashing Target...");
-            end Start;
-         or
-            accept Stop (Success : Boolean := True);
-            Running := False;
-         or
-            terminate;
-         end select;
-
-         while Bytes_Sent <= Total and Running loop
-            select
-               accept Stop (Success : Boolean := True) do
-                  Update; -- Ensure final status is printed
-                  Running := False;
-                  if Success then
-                     TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Flash Complete.");
-                  end if;
-               end Stop;
-            or
-               delay 0.050;
-               Update;
-            end select;
-         end loop;
-
-         -- Consume any final Stop signal if we exited due to completion
-         if Running then
-            select
-               accept Stop (Success : Boolean := True) do
-                  Update; -- Ensure final status is printed
-                  if Success then
-                     TIO.Put_Line
-                       (Ada.Characters.Latin_1.LF & "Flash Complete.");
-                  end if;
-               end Stop;
-            or
-               terminate;
-            end select;
-         end if;
-      end Progress_Bar;
+      Bar_Task : Progress_Bar.Bar_Task;
    begin
 
       Success := False;
 
-      Total := Integer (Data_Size);
+      Total := Progress_Bar.Volatile_Integer (Data_Size);
       Open (Input_File, In_File, Path);
       Set_Index (Input_File, Data_Offset);
       declare
@@ -352,10 +173,10 @@ package body Flash_Target is
       -- Write first 1KB
       Read (Input_File, Data, Length);
       Port.Write (Data (1 .. Length));
-      Bytes_Sent := Bytes_Sent + Integer (Length);
+      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
       Read (Input_File, Data, Length);
       Port.Write (Data (1 .. Length));
-      Bytes_Sent := Bytes_Sent + Integer (Length);
+      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
 
       TIO.Put_Line ("Starting erase...");
       delay (Get_Erase_Delay (Data_Size));
@@ -366,13 +187,18 @@ package body Flash_Target is
       end if;
       TIO.Put_Line ("Done.");
       if Verbose then
-         Progress_Bar.Start;
+         Bar_Task.Start
+           ("Flashing Target...",
+            "Flash Complete.",
+            Total'Unchecked_Access,
+            Bytes_Sent'Unchecked_Access,
+            True);
       end if;
       while not End_Of_File (Input_File) loop
          -- Wait for response from programmer to send more
          if not Protocol.Receive_Ready_Packet (Port) then
             -- Fail on no response
-            Progress_Bar.Stop (False);
+            Bar_Task.Stop (False);
             TIO.Put_Line
               (Ada.Characters.Latin_1.LF
                & "Failure: No response from programmer during write.");
@@ -382,7 +208,7 @@ package body Flash_Target is
          -- Write 512B
          Read (Input_File, Data, Length);
          Port.Write (Data (1 .. Length));
-         Bytes_Sent := Bytes_Sent + Integer (Length);
+         Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
       end loop;
       --  TIO.Put_Line ("Bytes sent" & Bytes_Sent'Image);
       Close (Input_File);
@@ -394,7 +220,7 @@ package body Flash_Target is
             if Is_Valid (Packet)
               and then Get_Command (Packet) /= Commands.Flash_Target_Complete
             then
-               Progress_Bar.Stop (False);
+               Bar_Task.Stop (False);
                TIO.Put_Line
                  (Ada.Characters.Latin_1.LF
                   & "Failure: Did not receive flash target complete from programmer");
@@ -402,14 +228,14 @@ package body Flash_Target is
             end if;
          end;
       else
-         Progress_Bar.Stop (False);
+         Bar_Task.Stop (False);
          TIO.Put_Line
            (Ada.Characters.Latin_1.LF
             & "Failure: Did not receive flash target complete from programmer");
          return;
       end if;
       Success := True;
-      Progress_Bar.Stop;
+      Bar_Task.Stop;
 
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
@@ -420,7 +246,7 @@ package body Flash_Target is
          if Is_Open (Input_File) then
             Close (Input_File);
          end if;
-         Progress_Bar.Stop (False);
+         Bar_Task.Stop (False);
          raise;
    end Flash;
 
