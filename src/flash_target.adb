@@ -387,18 +387,23 @@ package body Flash_Target is
       Base_Address : Unsigned_32 := 0;
       Verbose      : Boolean := False)
    is
+      File_Size : Unsigned_32;
       package DIR renames Ada.Directories;
    begin
       Load_SPI_Over_Jtag
         (Port => Port, Success => Success, Verbose => Verbose);
       if Success and then DIR.Exists (Path) then
-         Flash
-           (Port         => Port,
-            Path         => Path,
-            Data_Size    => Unsigned_32 (DIR.Size (Path)),
-            Success      => Success,
-            Base_Address => Base_Address,
-            Verbose      => Verbose);
+         File_Size := Unsigned_32 (DIR.Size (Path));
+         Erase_Flash (Port, File_Size, Success, Base_Address, True);
+         if Success then
+            Flash
+              (Port         => Port,
+               Path         => Path,
+               Data_Size    => File_Size,
+               Success      => Success,
+               Base_Address => Base_Address,
+               Verbose      => Verbose);
+         end if;
       else
          TIO.Put_Line ("Failure: File " & Path & " not found.");
          Success := False;
