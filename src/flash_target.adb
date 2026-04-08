@@ -127,6 +127,102 @@ package body Flash_Target is
          raise;
    end Load_SPI_Over_Jtag;
 
+   procedure Erase_Flash
+     (Port         : in out Serial_Interface.Serial_Port'Class;
+      Data_Size    : in Unsigned_32;
+      Success      : in out Boolean;
+      Base_Address : Unsigned_32 := 0;
+      Verbose      : Boolean := False)
+   is
+      use Progress_Bar;
+      Data             : Stream_Element_Array (1 .. 2);
+      Length           : Stream_Element_Offset;
+      Base_Address_Arr : Stream_Element_Array (1 .. 4)
+      with Address => Base_Address'Address;
+      Rx_Buffer        : Stream_Element_Array (1 .. 64);
+      Rx_Last          : Stream_Element_Offset;
+      Blocks_64        : Unsigned_32 := (Data_Size / Block_Size_64);
+      Blocks_32        : Unsigned_32 :=
+        (Data_Size mod Block_Size_64) / Block_Size_32;
+      Sectors          : Unsigned_32 :=
+        (((Data_Size mod Block_Size_64) mod Block_Size_32) + 4095)
+        / Sector_Size;
+      Sector_Arr       : Stream_Element_Array (1 .. 4)
+      with Address => Sectors'Address;
+      Bar_Task         : Progress_Bar.Bar_Task;
+      Payload          : Stream_Element_Array (1 .. 10);
+      Total            : aliased Volatile_Integer :=
+        Volatile_Integer (Data_Size);
+      Total_Erased     : aliased Volatile_Integer := 0;
+   begin
+      Success := False;
+      -- Data packet needed for erase
+      -- Base Address | Sectors | 32 Blocks | 64 Blocks
+      Payload (1 .. 8) := Base_Address_Arr & Sector_Arr;
+      Payload (9) := Stream_Element (Blocks_32);
+      Payload (10) := Stream_Element (Blocks_64);
+      declare
+         Packet : constant Stream_Element_Array :=
+           Make_Packet (Commands.Flash_Erase, Payload);
+      begin
+         Protocol.Send_Packet (Port, Packet);
+         --  delay (0.010);
+         if not Protocol.Receive_Ready_Packet (Port) then
+            TIO.Put_Line ("Failure: Programmer not ready.");
+            return;
+         end if;
+      end;
+      if Verbose then
+         Bar_Task.Start
+           ("Starting Erase...",
+            "Done.",
+            Total'Unchecked_Access,
+            Total_Erased'Unchecked_Access);
+      end if;
+      loop
+         Protocol.Receive_Packet (Port, Data, Length);
+         if Is_Valid (Data (1 .. Length)) then
+            declare
+               Cmd : Command_Id := Get_Command (Data (1 .. Length));
+            begin
+               case Cmd is
+                  when Commands.Block64_Erase_Done   =>
+                     Total_Erased :=
+                       Total_Erased + Volatile_Integer (Block_Size_64);
+
+                  when Commands.Block32_Erase_Done   =>
+                     Total_Erased :=
+                       Total_Erased + Volatile_Integer (Block_Size_32);
+
+                  when Commands.Sector_Erase_Done    =>
+                     Total_Erased :=
+                       Total_Erased + Volatile_Integer (Sector_Size);
+
+                  when Commands.Flash_Erase_Complete =>
+                     Total_Erased := Total;
+                     Bar_Task.Stop;
+                     exit;
+
+                  when others                        =>
+                     TIO.Put_Line ("Failure: Error During Erase.");
+                     Bar_Task.Stop (False);
+                     return;
+               end case;
+            end;
+         else
+            TIO.Put_Line ("Failure: Error During Erase.");
+            Bar_Task.Stop (False);
+            return;
+         end if;
+      end loop;
+      Success := True;
+
+   exception
+      when Other_Err : others =>
+         Bar_Task.Stop (False);
+         raise;
+   end Erase_Flash;
+
    procedure Flash
      (Port         : in out Serial_Interface.Serial_Port'Class;
       Path         : in String;
@@ -171,21 +267,6 @@ package body Flash_Target is
       end;
       -- TODO: make status message optional
       -- Write first 1KB
-      Read (Input_File, Data, Length);
-      Port.Write (Data (1 .. Length));
-      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
-      Read (Input_File, Data, Length);
-      Port.Write (Data (1 .. Length));
-      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
-
-      TIO.Put_Line ("Starting erase...");
-      delay (Get_Erase_Delay (Data_Size));
-
-      if not Protocol.Receive_Ready_Packet (Port) then
-         TIO.Put_Line ("Failure: Error during flash erase.");
-         return;
-      end if;
-      TIO.Put_Line ("Done.");
       if Verbose then
          Bar_Task.Start
            ("Flashing Target...",
@@ -194,6 +275,12 @@ package body Flash_Target is
             Bytes_Sent'Unchecked_Access,
             True);
       end if;
+      Read (Input_File, Data, Length);
+      Port.Write (Data (1 .. Length));
+      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
+      Read (Input_File, Data, Length);
+      Port.Write (Data (1 .. Length));
+      Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
       while not End_Of_File (Input_File) loop
          -- Wait for response from programmer to send more
          if not Protocol.Receive_Ready_Packet (Port) then
@@ -268,6 +355,9 @@ package body Flash_Target is
       Load_SPI_Over_Jtag
         (Port => Port, Success => Success, Verbose => Verbose);
       delay (0.010);
+      if Success then
+         Erase_Flash (Port, Bitstream_Size_U32, Success, 0, True);
+      end if;
       if Success then
          Flash
            (Port,

@@ -48,26 +48,6 @@ package body AdaBMP_FW is
    is
       pragma Unreferenced (Pin);
       pragma Unreferenced (Trigger);
-      Test_Word : UInt32 := 16#20#;
-
-      RDSR : constant UInt32 := 16#0500_0000#; -- Read Status Register
-      -- Check WIP bit of status register (bit 0)
-      function Wait_Write_In_Progress return Boolean is
-         Status : UInt32 := 1;
-      begin
-         JTAG.SPI_Start_Transaction;
-         -- Write RDSR and leave CS low so that status reg is sent continuously
-         -- Flash chip will keep sending status aftr RDSR command
-         JTAG.Write_Blocking (RDSR, 8);
-         JTAG.SPI_Start_Read_Blocking (Status, 8);
-         while (Status and 1) > 0 loop
-            JTAG.SPI_Read_Next_Blocking (Status, 8);
-         end loop;
-         -- Read_Last to shift to exit-dr
-         JTAG.SPI_Read_Last_Blocking (Status, 8);
-         JTAG.SPI_End_Transaction;
-         return (Status and 1) = 0; -- Should return false on timeout error
-      end Wait_Write_In_Progress;
    begin
       if (Clock - Last_Button_Press) > Debounce_Time then
          Pico.LED.Toggle;
@@ -103,6 +83,15 @@ package body AdaBMP_FW is
                   Run_Flash_Target
                     (Payload (Payload'First .. Payload'First + 3),
                      Payload (Payload'First + 4 .. Payload'First + 7));
+               end if;
+            end;
+
+         when Flash_Erase         =>
+            declare
+               Payload : UInt8_Array := Get_Payload (Cmd_Packet);
+            begin
+               if Payload'Length >= 10 then
+                  Run_Erase_Flash (Payload);
                end if;
             end;
 
@@ -310,91 +299,17 @@ package body AdaBMP_FW is
       package AU renames Atomic.Unsigned_32;
       package BC renames Byte_Counter;
 
-      -- Check WIP bit of status register (bit 0)
-      -- return True when WIP bit = 0,
-      function Wait_Write_In_Progress return Boolean is
-         Status : UInt32 := 1;
-         Start  : Time;
-      begin
-         JTAG.SPI_Start_Transaction;
-         -- Write RDSR and leave CS low so that status reg is sent continuously
-         -- Flash chip will keep sending status aftr RDSR command
-         JTAG.Write_Blocking (RDSR, 8);
-         JTAG.SPI_Start_Read_Blocking (Status, 8);
-         Start := Clock;
-         while (Status and 1) > 0 loop
-            JTAG.SPI_Read_Next_Blocking (Status, 8);
-            exit when Clock - Start > Error_Timeout;
-         end loop;
-         -- Read_Last to shift to exit-dr
-         JTAG.SPI_Read_Last_Blocking (Status, 8);
-         JTAG.SPI_End_Transaction;
-         return (Status and 1) = 0; -- Should return false on timeout error
-      end Wait_Write_In_Progress;
-
    begin
-      -- Address must be block aligned
-      if (Address and (Block_Size - 1)) /= 0 then
-         return;
-      end if;
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
       Send_Ready;
-      Pico.LED.Set;
-      Pico.GP0.Set;
       JTAG.SPI_Start;
-      -- Send Write Enable
-      -- Erase 64kb Blocks
-      if Data_Size > Block_Size then
-         declare
-            Blocks : constant UInt32 :=
-              Data_Size - (Data_Size mod Block_Size) + Address;
-         begin
-            while Cur_Address < Blocks loop
-               JTAG.SPI_Write_Command (WREN);
-               JTAG.SPI_Write_Command (BE, Cur_Address);
-               Cur_Address := Cur_Address + Block_Size;
-               -- Wait for Block erase
-               RP.Device.Timer.Delay_Milliseconds (BE_Wait);
-               if not Wait_Write_In_Progress then
-                  return;
-               end if;
-            end loop;
-         end;
-      end if;
-      -- Erase 4kb sectors
-      if Cur_Address < End_Address then
-         declare
-            Partial_Sector : constant UInt32 :=
-              (End_Address - Cur_Address) mod Sector_Size;
-            Sectors        : constant UInt32 :=
-              (if Partial_Sector > 0
-               then End_Address - Partial_Sector + Sector_Size
-               else End_Address);
-         begin
-            while Cur_Address < Sectors loop
-               JTAG.SPI_Write_Command (WREN);
-               JTAG.SPI_Write_Command (SE, Cur_Address);
-               Cur_Address := Cur_Address + Sector_Size;
-               -- Wait for Sector Erase
-               RP.Device.Timer.Delay_Milliseconds (SE_Wait);
-               if not Wait_Write_In_Progress then
-                  return;
-               end if;
-            end loop;
-         end;
-      end if;
-      -- Tell host erase is done
-      Send_Ready;
-      -- Wait for buffer to full if necessary
 
+      -- Wait for buffer to full
       while AU.Load (BC.Bytes_In) < Start_Threshold loop
          null;
       end loop;
 
-      Pico.GP0.Clear;
-      Pico.LED.Clear;
-      -- Initiate first page program
       Cur_Address := Address;
       JTAG.SPI_Write_Command (WREN);
       JTAG.SPI_Start_Transaction;
@@ -435,7 +350,7 @@ package body AdaBMP_FW is
                         Page_Written := 0;
 
                         -- wait for page program to finish
-                        if not Wait_Write_In_Progress then
+                        if not JTAG.SPI_Wait_Write_In_Progress then
                            return;
                         end if;
 
@@ -466,7 +381,7 @@ package body AdaBMP_FW is
       end loop;
 
       -- Wait for final write if necessary;
-      if not Wait_Write_In_Progress then
+      if not JTAG.SPI_Wait_Write_In_Progress then
          return;
       end if;
       Pico.LED.Set;
@@ -477,6 +392,70 @@ package body AdaBMP_FW is
       USB_Serial.Clear_Buffers;
       BC.Clear_Bytes_In;
    end Run_Flash_Target;
+
+   procedure Run_Erase_Flash (Erase_Data : UInt8_Array) is
+      Base_Arr    : constant UInt8_Array :=
+        Erase_Data (Erase_Data'First .. Erase_Data'First + 3);
+      Base_Addr   : UInt32
+      with Address => Base_Arr'Address;
+      Sec_Arr     : constant UInt8_Array :=
+        Erase_Data (Erase_Data'First + 4 .. Erase_Data'First + 7);
+      Sectors     : UInt32
+      with Address => Sec_Arr'Address;
+      Blocks_32   : constant UInt8 := Erase_Data (Erase_Data'First + 8);
+      Blocks_64   : constant UInt8 := Erase_Data (Erase_Data'First + 9);
+      Cur_Address : UInt32 := Base_Addr;
+      -- pre-encoded command packet
+      Packet      : UInt8_Array (1 .. 4) :=
+        (3, 16#AA#, UInt8 (Block64_Erase_Done), 0);
+   begin
+      if (Base_Addr and (Block64_Size - 1)) /= 0 then
+         return;
+      end if;
+      Send_Ready;
+      JTAG.SPI_Start;
+      -- Erase 64kb Blocks
+      for I in 1 .. Blocks_64 loop
+         JTAG.SPI_Write_Command (WREN);
+         JTAG.SPI_Write_Command (B64E, Cur_Address);
+         -- Update host with progress
+         -- Erase is not done yet, but we can use this time to notify host
+         Length := Packet'Length;
+         USB_Serial.Write (RP.Device.UDC, Packet'Address, Length);
+         Cur_Address := Cur_Address + Block64_Size;
+         if not JTAG.SPI_Wait_Write_In_Progress then
+            return;
+         end if;
+      end loop;
+      Packet (3) := UInt8 (Block32_Erase_Done);
+      for I in 1 .. Blocks_32 loop
+         JTAG.SPI_Write_Command (WREN);
+         JTAG.SPI_Write_Command (B32E, Cur_Address);
+         Length := Packet'Length;
+         USB_Serial.Write (RP.Device.UDC, Packet'Address, Length);
+         Cur_Address := Cur_Address + Block32_Size;
+         if not JTAG.SPI_Wait_Write_In_Progress then
+            return;
+         end if;
+      end loop;
+      -- Erase 4kb sectors
+      Packet (3) := UInt8 (Sector_Erase_Done);
+      for I in 1 .. Sectors loop
+         JTAG.SPI_Write_Command (WREN);
+         JTAG.SPI_Write_Command (SE, Cur_Address);
+         Length := Packet'Length;
+         USB_Serial.Write (RP.Device.UDC, Packet'Address, Length);
+         Cur_Address := Cur_Address + Sector_Size;
+         if not JTAG.SPI_Wait_Write_In_Progress then
+            return;
+         end if;
+      end loop;
+      -- Tell host erase is done
+      Packet (3) := UInt8 (Flash_Erase_Complete);
+      Length := Packet'Length;
+      USB_Serial.Write (RP.Device.UDC, Packet'Address, Length);
+      JTAG.SPI_Stop;
+   end Run_Erase_Flash;
 
    procedure Send_Ready is
       Packet : constant UInt8_Array :=

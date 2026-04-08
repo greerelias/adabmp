@@ -7,6 +7,7 @@ with HAL;               use HAL;
 with System;
 with Interfaces;        use Interfaces;
 with RP2040_SVD.PIO;
+with RP.Timer;          use RP.Timer;
 
 package JTAG is
 
@@ -59,18 +60,24 @@ package JTAG is
    procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
    -- Use for single read up to full word
    procedure SPI_Read_Once_Blocking (Data : in out UInt32; Length : UInt32);
+   function SPI_Wait_Write_In_Progress return Boolean;
 private
    Program_Offset : constant PIO_Address := 0;
    SM             : constant PIO_SM := 0;
    Config         : PIO_SM_Config := Default_SM_Config;
    P              : PIO_Device renames RP.Device.PIO_0;
 
-   TCK  : GPIO_Point renames Pico.GP10;
-   TDO  : GPIO_Point renames Pico.GP11;
-   TDI  : GPIO_Point renames Pico.GP12;
-   TMS  : GPIO_Point renames Pico.GP13;
-   RST  : GPIO_Point renames Pico.GP14;
-   TRST : GPIO_Point renames Pico.GP15;
+   TCK : GPIO_Point renames Pico.GP10;
+   TDO : GPIO_Point renames Pico.GP11;
+   TDI : GPIO_Point renames Pico.GP12;
+   TMS : GPIO_Point renames Pico.GP13;
+
+   -- For SPI_Wait_Write_In_Progress
+   -- RDSR right padded full word because we are using
+   -- JTAG.Write_Blocking so we can continously read the status reg
+   -- ie, keeping CS low after sending cmd
+   RDSR          : constant UInt32 := 16#0500_0000#; -- Read status
+   Error_Timeout : constant Time := 1_000_000; -- 1s
 
    TX_FIFO : aliased UInt32_Array (1 .. 4)
    with Volatile, Import, Address => P.TX_FIFO_Address (SM);
