@@ -3,6 +3,7 @@ with RP.Device; use RP.Device;
 with System;
 with RP.GPIO;   use RP.GPIO;
 with USB.Lang;
+with RP.Timer;
 
 package body JTAG is
    procedure Init is
@@ -58,8 +59,6 @@ package body JTAG is
          Slew_Fast => True,
          Func      => P.GPIO_Function);
       TMS.Configure (Mode => Output, Pull => Pull_Up, Slew_Fast => True);
-      RST.Configure (Mode => Input, Pull => Pull_Up, Slew_Fast => True);
-      TRST.Configure (Mode => Output, Pull => Pull_Up, Slew_Fast => True);
    end Init_Pins;
 
    procedure Write_Blocking (Data : UInt32; Length : UInt32) is
@@ -381,5 +380,28 @@ package body JTAG is
       Data := UInt32 (Shift_Left (Data, 1));
       Data := Data or Last_Bit;
    end SPI_Read_Once_Blocking;
+
+   -- Check WIP bit of status register (bit 0)
+   -- return True when WIP bit = 0,
+   -- Timer must be enabled in main
+   function SPI_Wait_Write_In_Progress return Boolean is
+      Status : UInt32 := 1;
+      Start  : Time;
+   begin
+      JTAG.SPI_Start_Transaction;
+      -- Write RDSR and leave CS low so that status reg is sent continuously
+      -- Flash chip will keep sending status aftr RDSR command
+      JTAG.Write_Blocking (RDSR, 8);
+      JTAG.SPI_Start_Read_Blocking (Status, 8);
+      Start := Clock;
+      while (Status and 1) > 0 loop
+         JTAG.SPI_Read_Next_Blocking (Status, 8);
+         exit when Clock - Start > Error_Timeout;
+      end loop;
+      -- Read_Last to shift to exit-dr
+      JTAG.SPI_Read_Last_Blocking (Status, 8);
+      JTAG.SPI_End_Transaction;
+      return (Status and 1) = 0; -- Should return false on timeout error
+   end SPI_Wait_Write_In_Progress;
 
 end JTAG;

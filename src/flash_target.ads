@@ -4,6 +4,9 @@ with Interfaces;            use Interfaces;
 
 package Flash_Target is
    SPI_JTAG_BS_Path : constant String := "spiOverJtag_xc7a35tcpg236.bit";
+   Block_Size_64    : constant Unsigned_32 := 2 ** 16;
+   Block_Size_32    : constant Unsigned_32 := 2 ** 15;
+   Sector_Size      : constant Unsigned_32 := 2 ** 12;
    procedure Load_SPI_Over_Jtag
      (Port    : in out Serial_Interface.Serial_Port'Class;
       Success : in out Boolean;
@@ -21,6 +24,12 @@ package Flash_Target is
       Base_Address : Unsigned_32 := 0;
       Verbose      : Boolean := False);
 private
+   procedure Erase_Flash
+     (Port         : in out Serial_Interface.Serial_Port'Class;
+      Data_Size    : in Unsigned_32;
+      Success      : in out Boolean;
+      Base_Address : Unsigned_32 := 0;
+      Verbose      : Boolean := False);
    procedure Flash
      (Port         : in out Serial_Interface.Serial_Port'Class;
       Path         : in String;

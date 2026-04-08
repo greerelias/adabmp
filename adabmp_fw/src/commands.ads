@@ -15,4 +15,9 @@ package Commands is
    Configure_Target_Complete : constant Command_Id := 12;
    Start_UART                : constant Command_Id := 13;
    Flash_Target_Complete     : constant Command_Id := 14;
+   Flash_Erase               : constant Command_Id := 15;
+   Block64_Erase_Done        : constant Command_Id := 16;
+   Block32_Erase_Done        : constant Command_Id := 17;
+   Sector_Erase_Done         : constant Command_Id := 18;
+   Flash_Erase_Complete      : constant Command_Id := 19;
 end Commands;
