@@ -6,6 +6,8 @@ with Ada.Streams;           use Ada.Streams;
 with Protocol;
 with Packet_Formatter;
 with Commands;              use Commands;
+with Progress_Bar;
+use type Progress_Bar.Volatile_Integer;
 
 package body Connection_Tester is
 
@@ -91,6 +93,10 @@ package body Connection_Tester is
       Rx_Last     : Stream_Element_Offset;
       Success_Cnt : Integer := 0;
       subtype Test_Count is Integer range 1 .. Number_Of_Tests;
+      Total       : aliased Progress_Bar.Volatile_Integer :=
+        Progress_Bar.Volatile_Integer (Test_Count'Last);
+      Test_Iter   : aliased Progress_Bar.Volatile_Integer := 0;
+      Bar_Task    : Progress_Bar.Bar_Task;
    begin
       Success := False;
       Put_Line ("Initializing connection test...");
@@ -121,8 +127,15 @@ package body Connection_Tester is
          Message := To_Unbounded_String ("FAILURE: No response from device");
          return;
       end if;
+      Bar_Task.Start
+        ("Testing connection...",
+         "Test complete.",
+         Total'Unchecked_Access,
+         Test_Iter'Unchecked_Access,
+         False);
       -- Start Test Loop
       for I in Test_Count loop
+         Test_Iter := Progress_Bar.Volatile_Integer (I);
          -- Start Test
          Random_Bytes.Reset (Gen);
          Fill_Random (Tx_Payload);
@@ -190,6 +203,8 @@ package body Connection_Tester is
               & " packets received.");
       end if;
 
+      Bar_Task.Stop;
+
       declare
          Cmd_Packet : constant Stream_Element_Array :=
            Make_Packet (End_Test, (1 .. 0 => 0));
@@ -201,12 +216,15 @@ package body Connection_Tester is
       when Protocol.Decode_Error =>
          Message := To_Unbounded_String ("FAILURE: Decode Error");
          Success := False;
+         Bar_Task.Stop (False);
       when Protocol.Buffer_Overflow =>
          Message := To_Unbounded_String ("FAILURE: Buffer Overflow");
          Success := False;
+         Bar_Task.Stop (False);
       when others =>
          Message := To_Unbounded_String ("Exception during test execution");
          Success := False;
+         Bar_Task.Stop (False);
    end Run_Test;
 
 end Connection_Tester;
