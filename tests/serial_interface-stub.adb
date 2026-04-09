@@ -93,6 +93,33 @@ package body Serial_Interface.Stub is
                            -- Logic handled in UART_Tests.adb
                            null;
 
+                        when Flash_Erase      =>
+                           declare
+                              Erase_Data : constant Stream_Element_Array :=
+                                Get_Payload (Decoded);
+                              Base_Arr   : Stream_Element_Array (1 .. 4) :=
+                                Erase_Data
+                                  (Erase_Data'First .. Erase_Data'First + 3);
+                              Base_Addr  : Integer
+                              with Address => Base_Arr'Address;
+                              Sec_Arr    : Stream_Element_Array (1 .. 4) :=
+                                Erase_Data
+                                  (Erase_Data'First + 4
+                                   .. Erase_Data'First + 7);
+                              Sectors    : Integer
+                              with Address => Sec_Arr'Address;
+                           begin
+                              Port.Base_Addr := Base_Addr;
+                              Port.Sectors := Sectors;
+                              Port.Blocks_32 :=
+                                Integer (Erase_Data (Erase_Data'First + 8));
+                              Port.Blocks_64 :=
+                                Integer (Erase_Data (Erase_Data'First + 9));
+                              Port.Cur_Address := Port.Base_Addr;
+                              Port.State :=
+                                Serial_Interface.Stub.Erasing_Flash;
+                           end;
+
                         when others           =>
                            null;
                      end case;
@@ -150,10 +177,32 @@ package body Serial_Interface.Stub is
                      return;
                   end if;
                   -- Got data, tell host to send more
-                  Send_Ready_Packet (Port);
+                  Port.Send_Ready_Packet;
                end if;
-         end case;
 
+            when Erasing_Flash      =>
+               declare
+                  Block64_Size : constant Integer := 2 ** 16;
+                  Block32_Size : constant Integer := 2 ** 15;
+                  Sector_Size  : constant Integer := 2 ** 12;
+               begin
+                  Port.Send_Ready_Packet;
+                  for I in 1 .. Port.Blocks_64 loop
+                     Port.Cur_Address := Port.Cur_Address + Block64_Size;
+                     Port.Send_Command_Packet (Block64_Erase_Done);
+                  end loop;
+                  for I in 1 .. Port.Blocks_32 loop
+                     Port.Cur_Address := Port.Cur_Address + Block32_Size;
+                     Port.Send_Command_Packet (Block32_Erase_Done);
+                  end loop;
+                  for I in 1 .. Port.Sectors loop
+                     Port.Cur_Address := Port.Cur_Address + Sector_Size;
+                     Port.Send_Command_Packet (Sector_Erase_Done);
+                  end loop;
+                  Port.Send_Command_Packet (Flash_Erase_Complete);
+                  Port.State := Idle;
+               end;
+         end case;
       end if;
    end Write;
 

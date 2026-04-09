@@ -13,80 +13,55 @@ procedure Test_Runner_TS6 is
    function Suite return Access_Test_Suite is
       Ret : constant Access_Test_Suite := new Test_Suite;
    begin
-      -- Flash Target Tests
-      Ret.Add_Test
-        (Flash_Target_Tests_Caller.Create
-           ("Start Load SPI over JTAG Success",
-            Flash_Target_Tests.Test_Load_SPI_JTAG_Success'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Load SPI over JTAG No Response",
-            Flash_Target_Tests.Test_Load_SPI_JTAG_No_Response'Access));
-
-      Ret.Add_Test
-        (Flash_Target_Tests_Caller.Create
-           ("Start Load SPI over JTAG Bad File",
-            Flash_Target_Tests.Test_Load_SPI_JTAG_Bad_File'Access));
-
-      Ret.Add_Test
-        (Flash_Target_Tests_Caller.Create
-           ("Start Load SPI over JTAG No File",
-            Flash_Target_Tests.Test_Load_SPI_JTAG_No_File'Access));
-
-      Ret.Add_Test
-        (Flash_Target_Tests_Caller.Create
-           ("Start Load SPI over JTAG Failure",
-            Flash_Target_Tests.Test_Load_SPI_JTAG_Failure'Access));
-
-      Ret.Add_Test
-        (Flash_Target_Tests_Caller.Create
-           ("Start Flash Bitstream Success",
+           ("Test Flash Bitstream Success",
             Flash_Target_Tests.Test_Flash_Bitstream_Success'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Bitstream No Response",
+           ("Test Flash Bitstream No Response",
             Flash_Target_Tests.Test_Flash_Bitstream_No_Response'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Bitstream Bad File",
+           ("Test Flash Bitstream Bad File",
             Flash_Target_Tests.Test_Flash_Bitstream_Bad_File'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Bitstream No File",
+           ("Test Flash Bitstream No File",
             Flash_Target_Tests.Test_Flash_Bitstream_No_File'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Bitstream Failure",
+           ("Test Flash Bitstream Failure",
             Flash_Target_Tests.Test_Flash_Bitstream_Failure'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Firmware Success",
+           ("Test Flash Firmware Success",
             Flash_Target_Tests.Test_Flash_Firmware_Success'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Firmware No Response",
+           ("Test Flash Firmware No Response",
             Flash_Target_Tests.Test_Flash_Firmware_No_Response'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Firmware Invalid Filename",
+           ("Test Flash Firmware Invalid Filename",
             Flash_Target_Tests.Test_Flash_Firmware_Invalid_Filename'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Firmware No File",
+           ("Test Flash Firmware No File",
             Flash_Target_Tests.Test_Flash_Firmware_No_File'Access));
 
       Ret.Add_Test
         (Flash_Target_Tests_Caller.Create
-           ("Start Flash Firmware Failure",
+           ("Test Flash Firmware Failure",
             Flash_Target_Tests.Test_Flash_Firmware_Failure'Access));
 
       return Ret;

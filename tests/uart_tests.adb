@@ -1,11 +1,9 @@
 with Ada.Streams;      use Ada.Streams;
 with AUnit.Assertions; use AUnit.Assertions;
-with AdaBMP;
 with Commands;
 with Serial_Interface.Stub;
 with Packet_Formatter; use Packet_Formatter;
 with Protocol;         use Protocol;
-with System.Dwarf_Lines;
 with UART;
 
 package body UART_Tests is

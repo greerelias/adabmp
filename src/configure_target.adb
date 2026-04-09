@@ -17,10 +17,11 @@ use type Progress_Bar.Volatile_Integer;
 
 package body Configure_Target is
    procedure Load_Bitstream
-     (Port    : in out Serial_Interface.Serial_Port'Class;
-      Path    : in String;
-      Success : in out Boolean;
-      Verbose : Boolean := False)
+     (Port     : in out Serial_Interface.Serial_Port'Class;
+      Path     : in String;
+      Success  : in out Boolean;
+      Verbose  : Boolean := False;
+      SPI_JTAG : Boolean := False)
    is
       Bitstream          : File_Type;
       Bitstream_Header   : Header_Info;
@@ -60,12 +61,21 @@ package body Configure_Target is
       end if;
       -- TODO: make status message optional
       if Verbose then
-         Bar_Task.Start
-           ("Starting bitstream transfer...",
-            "Transfer complete",
-            Total'Unchecked_Access,
-            Bytes_Sent'Unchecked_Access,
-            True);
+         if SPI_JTAG then
+            Bar_Task.Start
+              ("Configuring Target for SPI over JTAG...",
+               "Configuration Complete.",
+               Total'Unchecked_Access,
+               Bytes_Sent'Unchecked_Access,
+               False);
+         else
+            Bar_Task.Start
+              ("Starting bitstream transfer...",
+               "Transfer complete",
+               Total'Unchecked_Access,
+               Bytes_Sent'Unchecked_Access,
+               True);
+         end if;
       end if;
       -- Write first 1KB
       Read (Bitstream, Data, Length);

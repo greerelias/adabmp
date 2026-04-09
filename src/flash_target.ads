@@ -7,11 +7,6 @@ package Flash_Target is
    Block_Size_64    : constant Unsigned_32 := 2 ** 16;
    Block_Size_32    : constant Unsigned_32 := 2 ** 15;
    Sector_Size      : constant Unsigned_32 := 2 ** 12;
-   procedure Load_SPI_Over_Jtag
-     (Port    : in out Serial_Interface.Serial_Port'Class;
-      Success : in out Boolean;
-      Path    : in String := SPI_JTAG_BS_Path;
-      Verbose : Boolean := False);
    procedure Flash_Bitstream
      (Port    : in out Serial_Interface.Serial_Port'Class;
       Path    : in String;
@@ -39,5 +34,4 @@ private
       Base_Address : Unsigned_32 := 0;
       Verbose      : Boolean := False);
 
-   function Get_Erase_Delay (Size : Unsigned_32) return Duration;
 end Flash_Target;

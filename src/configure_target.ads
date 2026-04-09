@@ -3,8 +3,9 @@ with Serial_Interface;
 
 package Configure_Target is
    procedure Load_Bitstream
-     (Port    : in out Serial_Interface.Serial_Port'Class;
-      Path    : in String;
-      Success : in out Boolean;
-      Verbose : Boolean := False);
+     (Port     : in out Serial_Interface.Serial_Port'Class;
+      Path     : in String;
+      Success  : in out Boolean;
+      Verbose  : Boolean := False;
+      SPI_JTAG : Boolean := False);
 end Configure_Target;
