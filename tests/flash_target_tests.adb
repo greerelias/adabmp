@@ -13,7 +13,7 @@ package body Flash_Target_Tests is
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean := False;
    begin
-      Flash_Target.Flash_Bitstream (Port, "tester.bit", Success);
+      Flash_Target.Flash_Bitstream (Port, "./test_files/tester.bit", Success);
       Assert (Success, "Test should succeed.");
    end Test_Flash_Bitstream_Success;
 
@@ -22,7 +22,7 @@ package body Flash_Target_Tests is
       Success : Boolean := True;
    begin
       Port.Enabled := False;
-      Flash_Target.Flash_Bitstream (Port, "tester.bit", Success);
+      Flash_Target.Flash_Bitstream (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Flash_Bitstream_No_Response;
 
@@ -30,7 +30,8 @@ package body Flash_Target_Tests is
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean := True;
    begin
-      Flash_Target.Flash_Bitstream (Port, "bad_tester.bit", Success);
+      Flash_Target.Flash_Bitstream
+        (Port, "./test_files/bad_tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Flash_Bitstream_Bad_File;
 
@@ -47,7 +48,7 @@ package body Flash_Target_Tests is
       Success : Boolean := True;
    begin
       Port.Fail_During_Write := True;
-      Flash_Target.Flash_Bitstream (Port, "tester.bit", Success);
+      Flash_Target.Flash_Bitstream (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Flash_Bitstream_Failure;
 
@@ -56,7 +57,7 @@ package body Flash_Target_Tests is
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean := False;
    begin
-      Flash_Target.Flash_Firmware (Port, "tester.bit", Success);
+      Flash_Target.Flash_Firmware (Port, "./test_files/tester.bit", Success);
       Assert (Success, "Test should succed.");
    end Test_Flash_Firmware_Success;
 
@@ -65,7 +66,7 @@ package body Flash_Target_Tests is
       Success : Boolean := True;
    begin
       Port.Enabled := False;
-      Flash_Target.Flash_Firmware (Port, "tester.bit", Success);
+      Flash_Target.Flash_Firmware (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Flash_Firmware_No_Response;
 
@@ -91,7 +92,7 @@ package body Flash_Target_Tests is
       Success : Boolean := True;
    begin
       Port.Fail_During_Write := True;
-      Flash_Target.Flash_Firmware (Port, "tester.bit", Success);
+      Flash_Target.Flash_Firmware (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Flash_Firmware_Failure;
 end Flash_Target_Tests;

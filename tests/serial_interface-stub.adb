@@ -116,8 +116,8 @@ package body Serial_Interface.Stub is
                               Port.Blocks_64 :=
                                 Integer (Erase_Data (Erase_Data'First + 9));
                               Port.Cur_Address := Port.Base_Addr;
-                              Port.State :=
-                                Serial_Interface.Stub.Erasing_Flash;
+                              Port.Send_Ready_Packet;
+                              Port.State := Serial_Interface.Stub.Start_Erase;
                            end;
 
                         when others           =>
@@ -180,28 +180,9 @@ package body Serial_Interface.Stub is
                   Port.Send_Ready_Packet;
                end if;
 
-            when Erasing_Flash      =>
-               declare
-                  Block64_Size : constant Integer := 2 ** 16;
-                  Block32_Size : constant Integer := 2 ** 15;
-                  Sector_Size  : constant Integer := 2 ** 12;
-               begin
-                  Port.Send_Ready_Packet;
-                  for I in 1 .. Port.Blocks_64 loop
-                     Port.Cur_Address := Port.Cur_Address + Block64_Size;
-                     Port.Send_Command_Packet (Block64_Erase_Done);
-                  end loop;
-                  for I in 1 .. Port.Blocks_32 loop
-                     Port.Cur_Address := Port.Cur_Address + Block32_Size;
-                     Port.Send_Command_Packet (Block32_Erase_Done);
-                  end loop;
-                  for I in 1 .. Port.Sectors loop
-                     Port.Cur_Address := Port.Cur_Address + Sector_Size;
-                     Port.Send_Command_Packet (Sector_Erase_Done);
-                  end loop;
-                  Port.Send_Command_Packet (Flash_Erase_Complete);
-                  Port.State := Idle;
-               end;
+            when others             =>
+               -- Should never be here
+               null;
          end case;
       end if;
    end Write;
@@ -213,12 +194,36 @@ package body Serial_Interface.Stub is
       Buffer : in out Stream_Element_Array;
       Last   : out Stream_Element_Offset)
    is
+      use Commands;
       Available : Stream_Element_Offset;
       To_Read   : Stream_Element_Offset;
    begin
-      if not Port.Enabled or Port.Read_Index > Port.Read_Count then
+      if not Port.Enabled then
          Last := Buffer'First - 1; -- No data
          return;
+      end if;
+      -- Special case when erasing flash
+      if Port.Read_Index > Port.Read_Count then
+         if Port.State = Start_Erase then
+            Port.State := Erasing_Flash;
+         elsif Port.State = Erasing_Flash then
+            if Port.Blocks_64 > 0 then
+               Port.Blocks_64 := Port.Blocks_64 - 1;
+               Port.Send_Command_Packet (Block64_Erase_Done);
+            elsif Port.Blocks_32 > 0 then
+               Port.Blocks_32 := Port.Blocks_32 - 1;
+               Port.Send_Command_Packet (Block32_Erase_Done);
+            elsif Port.Sectors > 0 then
+               Port.Sectors := Port.Sectors - 1;
+               Port.Send_Command_Packet (Sector_Erase_Done);
+            else
+               Port.Send_Command_Packet (Flash_Erase_Complete);
+               Port.State := Idle;
+            end if;
+         else
+            Last := Buffer'First - 1; -- No data
+            return;
+         end if;
       end if;
 
       Available := Port.Read_Count - Port.Read_Index + 1;

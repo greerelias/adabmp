@@ -12,7 +12,8 @@ package body Configure_Target_Tests is
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean := False;
    begin
-      Configure_Target.Load_Bitstream (Port, "tester.bit", Success);
+      Configure_Target.Load_Bitstream
+        (Port, "./test_files/tester.bit", Success);
       Assert (Success, "Test should succed.");
    end Test_Configure_Target_Success;
 
@@ -21,7 +22,8 @@ package body Configure_Target_Tests is
       Success : Boolean := True;
    begin
       Port.Enabled := False;
-      Configure_Target.Load_Bitstream (Port, "tester.bit", Success);
+      Configure_Target.Load_Bitstream
+        (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Configure_Target_No_Response;
 
@@ -29,7 +31,8 @@ package body Configure_Target_Tests is
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean := True;
    begin
-      Configure_Target.Load_Bitstream (Port, "bad_tester.bit", Success);
+      Configure_Target.Load_Bitstream
+        (Port, "./test_files/bad_tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Configure_Target_Bad_File;
 
@@ -46,7 +49,8 @@ package body Configure_Target_Tests is
       Success : Boolean := True;
    begin
       Port.Fail_During_Write := True;
-      Configure_Target.Load_Bitstream (Port, "tester.bit", Success);
+      Configure_Target.Load_Bitstream
+        (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Configure_Target_Failure;
 end Configure_Target_Tests;

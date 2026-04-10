@@ -253,7 +253,7 @@ package body Flash_Target is
          Verbose  => Verbose,
          SPI_JTAG => True);
       if Success then
-         Erase_Flash (Port, Bitstream_Size_U32, Success, 0, True);
+         Erase_Flash (Port, Bitstream_Size_U32, Success, 0, Verbose);
       end if;
       if Success then
          Flash
@@ -287,15 +287,20 @@ package body Flash_Target is
       File_Size : Unsigned_32;
       package DIR renames Ada.Directories;
    begin
+      if not DIR.Exists (Path) then
+         TIO.Put_Line ("Failure: File " & Path & " not found.");
+         Success := False;
+         return;
+      end if;
       Configure_Target.Load_Bitstream
         (Port     => Port,
          Path     => SPI_JTAG_BS_Path,
          Success  => Success,
          Verbose  => Verbose,
          SPI_JTAG => True);
-      if Success and then DIR.Exists (Path) then
+      if Success then
          File_Size := Unsigned_32 (DIR.Size (Path));
-         Erase_Flash (Port, File_Size, Success, Base_Address, True);
+         Erase_Flash (Port, File_Size, Success, Base_Address, Verbose);
          if Success then
             Flash
               (Port         => Port,
@@ -305,9 +310,6 @@ package body Flash_Target is
                Base_Address => Base_Address,
                Verbose      => Verbose);
          end if;
-      else
-         TIO.Put_Line ("Failure: File " & Path & " not found.");
-         Success := False;
       end if;
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>

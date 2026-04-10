@@ -10,6 +10,7 @@ package Serial_Interface.Stub is
       Testing_Connection,
       Configuring_Target,
       Flashing_Target,
+      Start_Erase,
       Erasing_Flash);
    type Mock_Port is limited new Serial_Interface.Serial_Port with record
       Opened       : Boolean := False;

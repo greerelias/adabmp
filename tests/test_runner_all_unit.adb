@@ -9,6 +9,7 @@ with Device_Discovery_Tests;
 with Board_Info_Tests;
 with Configure_Target_Tests;
 with UART_Tests;
+with Flash_Target_Tests;
 
 procedure Test_Runner_All_Unit is
    use AUnit.Test_Suites;
@@ -22,6 +23,9 @@ procedure Test_Runner_All_Unit is
    package Configure_Target_Caller is new
      AUnit.Test_Caller (Configure_Target_Tests.Test);
    package UART_Tests_Caller is new AUnit.Test_Caller (UART_Tests.Test);
+
+   package Flash_Target_Tests_Caller is new
+     AUnit.Test_Caller (Flash_Target_Tests.Test);
 
    function Suite return Access_Test_Suite is
       Ret : constant Access_Test_Suite := new Test_Suite;
@@ -147,8 +151,59 @@ procedure Test_Runner_All_Unit is
            ("Start UART Bad Response",
             UART_Tests.Test_UART_Bad_Response'Access));
 
+      -- Flash Tests
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Bitstream Success",
+            Flash_Target_Tests.Test_Flash_Bitstream_Success'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Bitstream No Response",
+            Flash_Target_Tests.Test_Flash_Bitstream_No_Response'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Bitstream Bad File",
+            Flash_Target_Tests.Test_Flash_Bitstream_Bad_File'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Bitstream No File",
+            Flash_Target_Tests.Test_Flash_Bitstream_No_File'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Bitstream Failure",
+            Flash_Target_Tests.Test_Flash_Bitstream_Failure'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Firmware Success",
+            Flash_Target_Tests.Test_Flash_Firmware_Success'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Firmware No Response",
+            Flash_Target_Tests.Test_Flash_Firmware_No_Response'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Firmware Invalid Filename",
+            Flash_Target_Tests.Test_Flash_Firmware_Invalid_Filename'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Firmware No File",
+            Flash_Target_Tests.Test_Flash_Firmware_No_File'Access));
+
+      Ret.Add_Test
+        (Flash_Target_Tests_Caller.Create
+           ("Test Flash Firmware Failure",
+            Flash_Target_Tests.Test_Flash_Firmware_Failure'Access));
       return Ret;
    end Suite;
+
 
    procedure Run is new AUnit.Run.Test_Runner (Suite);
    Reporter : AUnit.Reporter.Text.Text_Reporter;
