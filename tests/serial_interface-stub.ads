@@ -27,6 +27,7 @@ package Serial_Interface.Stub is
       -- For Configure Target Test
       Data_Size         : Natural;
       Fail_During_Write : Boolean := False;
+      Board_Enabled     : Boolean := True;
 
       -- For Board Info Test
       Board_Info_Response : Stream_Element_Array (1 .. 128);

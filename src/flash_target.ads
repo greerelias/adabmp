@@ -3,7 +3,8 @@ with Serial_Interface;
 with Interfaces;            use Interfaces;
 
 package Flash_Target is
-   SPI_JTAG_BS_Path : constant String := "spiOverJtag_xc7a35tcpg236.bit";
+   SPI_JTAG_BS_Path : constant String :=
+     "./spi_jtag/spiOverJtag_xc7a35tcpg236.bit";
    Block_Size_64    : constant Unsigned_32 := 2 ** 16;
    Block_Size_32    : constant Unsigned_32 := 2 ** 15;
    Sector_Size      : constant Unsigned_32 := 2 ** 12;

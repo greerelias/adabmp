@@ -40,12 +40,28 @@ package body Serial_Interface.Stub is
                            Send_Ready_Packet (Port);
 
                         when Get_Board_Info   =>
-                           if Port.Board_Info_Length > 0 then
-                              Port.Read_Stream (1 .. Port.Board_Info_Length) :=
-                                Port.Board_Info_Response
-                                  (1 .. Port.Board_Info_Length);
-                              Port.Read_Count := Port.Board_Info_Length;
-                              Port.Read_Index := 1;
+                           if Port.Board_Enabled then
+                              declare
+                                 Response : Stream_Element_Array (1 .. 8) :=
+                                   (16#07#,
+                                    16#AA#,
+                                    16#02#,
+                                    16#03#,
+                                    16#62#,
+                                    16#D0#,
+                                    16#93#,
+                                    16#00#);
+                              begin
+                                 Port.Set_Input (Response);
+                              end;
+                           else
+                              -- No communication with target case
+                              declare
+                                 Response : Stream_Element_Array (1 .. 4) :=
+                                   (16#03#, 16#AA#, 16#B#, 16#00#);
+                              begin
+                                 Port.Set_Input (Response);
+                              end;
                            end if;
 
                         when Configure_Target =>

@@ -1,14 +1,14 @@
-with Ada.Text_IO;           use Ada.Text_IO;
-with Ada.Exceptions;        use Ada.Exceptions;
-with Packet_Formatter;      use Packet_Formatter;
+with Ada.Text_IO;      use Ada.Text_IO;
+with Ada.Exceptions;   use Ada.Exceptions;
+with Packet_Formatter; use Packet_Formatter;
 with Commands;
 with Protocol;
 
 package body Board_Info is
 
    procedure Get_Board_Info
-     (Port : in out Serial_Interface.Serial_Port'Class; 
-      Info : out Board_Info_Record_Access;
+     (Port    : in out Serial_Interface.Serial_Port'Class;
+      Info    : out Board_Info_Record_Access;
       Success : out Boolean)
    is
       --  We'll send a Get_Board_Info command with no payload
@@ -33,27 +33,33 @@ package body Board_Info is
               Rx_Buffer (Rx_Buffer'First .. Rx_Last);
          begin
             if Is_Valid (Response) then
-               declare
-                  Resp_Payload : constant Stream_Element_Array :=
-                    Get_Payload (Response);
-               begin
-                  Info.Bytes (1) := Resp_Payload (Resp_Payload'Last - 0);
-                  Info.Bytes (2) := Resp_Payload (Resp_Payload'Last - 1);
-                  Info.Bytes (3) := Resp_Payload (Resp_Payload'Last - 2);
-                  Info.Bytes (4) := Resp_Payload (Resp_Payload'Last - 3);
-                  Success := True;
-               end;
+               if Get_Command (Response) = Commands.Data_Packet then
+                  declare
+                     Resp_Payload : constant Stream_Element_Array :=
+                       Get_Payload (Response);
+                  begin
+                     Info.Bytes (1) := Resp_Payload (Resp_Payload'Last - 0);
+                     Info.Bytes (2) := Resp_Payload (Resp_Payload'Last - 1);
+                     Info.Bytes (3) := Resp_Payload (Resp_Payload'Last - 2);
+                     Info.Bytes (4) := Resp_Payload (Resp_Payload'Last - 3);
+                     Success := True;
+                  end;
+               elsif Get_Command (Response) = Commands.JTAG_Error then
+                  Success := False;
+                  Put_Line ("Falure: Error communicating with target.");
+               else
+                  raise Communication_Error;
+               end if;
             else
                raise Board_Bad_Format;
             end if;
          end;
       else
-         raise Board_Not_Found;
+         Success := False;
+         Put_Line ("Failure: No response from programmer");
       end if;
 
    exception
-      when Board_Not_Found =>
-         raise;
       when Board_Bad_Format =>
          raise;
       when Constraint_Error =>

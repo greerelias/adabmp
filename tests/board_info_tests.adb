@@ -1,21 +1,20 @@
-with Board_Info;            use Board_Info;
+with Board_Info;       use Board_Info;
 with Serial_Interface;
-with Ada.Streams;           use Ada.Streams;
-with AUnit.Assertions;      use AUnit.Assertions;
+with Ada.Streams;      use Ada.Streams;
+with AUnit.Assertions; use AUnit.Assertions;
 
 package body Board_Info_Tests is
 
    ---------------------------------------------------------------------------
    -- Mock serial port
    ---------------------------------------------------------------------------
-   type Mock_Serial_Port is
-     new Serial_Interface.Serial_Port with record
-        Response      : Stream_Element_Array (1 .. 32);
-        Response_Last : Stream_Element_Offset := 0;
-        Read_Pos      : Stream_Element_Offset := 1;
-        Raise_On_Read : Boolean := False;
-        No_Device     : Boolean := False;
-     end record;
+   type Mock_Serial_Port is new Serial_Interface.Serial_Port with record
+      Response      : Stream_Element_Array (1 .. 32);
+      Response_Last : Stream_Element_Offset := 0;
+      Read_Pos      : Stream_Element_Offset := 1;
+      Raise_On_Read : Boolean := False;
+      No_Device     : Boolean := False;
+   end record;
 
    --  ALL overrides must appear immediately after the type
    overriding
@@ -26,8 +25,7 @@ package body Board_Info_Tests is
 
    overriding
    procedure Write
-     (Port : in out Mock_Serial_Port;
-      Data : Stream_Element_Array);
+     (Port : in out Mock_Serial_Port; Data : Stream_Element_Array);
 
    overriding
    procedure Read
@@ -49,14 +47,13 @@ package body Board_Info_Tests is
    end Close;
 
    procedure Write
-     (Port : in out Mock_Serial_Port;
-      Data : Stream_Element_Array) is
+     (Port : in out Mock_Serial_Port; Data : Stream_Element_Array) is
    begin
       null;
    end Write;
 
    procedure Read
-   (Port   : in out Mock_Serial_Port;
+     (Port   : in out Mock_Serial_Port;
       Buffer : in out Stream_Element_Array;
       Last   : out Stream_Element_Offset) is
    begin
@@ -75,16 +72,18 @@ package body Board_Info_Tests is
    -- Tests
    ---------------------------------------------------------------------------
    procedure Test_Board_Info_Success (T : in out Test) is
-      Port : aliased Mock_Serial_Port;
-      Info : Board_Info_Record_Access;
+      Port    : aliased Mock_Serial_Port;
+      Info    : Board_Info_Record_Access;
       Success : Boolean;
    begin
-      Port.Response (1 .. 8) := (16#07#, 16#AA#, 16#08#, 16#03#, 16#62#, 16#D0#, 16#93#, 16#00#);
+      Port.Response (1 .. 8) :=
+        (16#07#, 16#AA#, 16#02#, 16#03#, 16#62#, 16#D0#, 16#93#, 16#00#);
       Port.Response_Last := 8;
       Port.Read_Pos := 1;
       Board_Info.Get_Board_Info (Port, Info, Success);
 
-      Assert (Success,
+      Assert
+        (Success,
          "Get_Board_Info should succeed when valid response is received");
 
       Assert (Info.Bytes (1) = 16#93#, "Info.Bytes (1) wrong");
@@ -94,15 +93,17 @@ package body Board_Info_Tests is
    end Test_Board_Info_Success;
 
    procedure Test_Board_Info_Not_Found (T : in out Test) is
-      Port : aliased Mock_Serial_Port;
-      Info : Board_Info_Record_Access;
-      Success : Boolean;
+      Port    : aliased Mock_Serial_Port;
+      Info    : Board_Info_Record_Access;
+      Success : Boolean := False;
    begin
       Port.No_Device := True;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
 
-      Assert (False, "Get_Board_Info should raise Board_Not_Found when no device responds");
+      Assert
+        (not Success,
+         "Get_Board_Info should return false when no board found");
    exception
       when Board_Info.Board_Not_Found =>
          null;
@@ -110,17 +111,19 @@ package body Board_Info_Tests is
 
 
    procedure Test_Board_Info_Format (T : in out Test) is
-      Port : aliased Mock_Serial_Port;
-      Info : Board_Info_Record_Access;
-      Success : Boolean;
+      Port    : aliased Mock_Serial_Port;
+      Info    : Board_Info_Record_Access;
+      Success : Boolean := False;
    begin
       Port.Response (1 .. 3) := (16#02#, 16#FF#, 16#00#);
       Port.Response_Last := 3;
-      Port.Read_Pos      := 1;
+      Port.Read_Pos := 1;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
 
-      Assert (False, "Get_Board_Info should raise Board_Bad_Format for malformed responses");
+      Assert
+        (False,
+         "Get_Board_Info should raise Board_Bad_Format for malformed responses");
    exception
       when Board_Info.Board_Bad_Format =>
          null;
@@ -128,15 +131,17 @@ package body Board_Info_Tests is
 
 
    procedure Test_Board_Info_Comm_Error (T : in out Test) is
-      Port : aliased Mock_Serial_Port;
-      Info : Board_Info_Record_Access;
+      Port    : aliased Mock_Serial_Port;
+      Info    : Board_Info_Record_Access;
       Success : Boolean;
    begin
       Port.Raise_On_Read := True;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
 
-      Assert (False, "Get_Board_Info should raise Communication_Error on serial failure");
+      Assert
+        (False,
+         "Get_Board_Info should raise Communication_Error on serial failure");
    exception
       when Board_Info.Communication_Error =>
          null;

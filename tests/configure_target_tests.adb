@@ -53,4 +53,15 @@ package body Configure_Target_Tests is
         (Port, "./test_files/tester.bit", Success);
       Assert (not Success, "Test should fail.");
    end Test_Configure_Target_Failure;
+
+   procedure Test_Configure_Target_No_Target (T : in out Test) is
+      Port    : Serial_Interface.Stub.Mock_Port;
+      Success : Boolean := True;
+   begin
+      Port.Board_Enabled := False;
+      Configure_Target.Load_Bitstream
+        (Port, "./test_files/tester.bit", Success);
+      Assert (not Success, "Test should fail.");
+   end Test_Configure_Target_No_Target;
+
 end Configure_Target_Tests;

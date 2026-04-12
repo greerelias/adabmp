@@ -34,6 +34,10 @@ procedure Test_Runner_TS4 is
         (Configure_Target_Caller.Create
            ("Test Configure Target Failure",
             Configure_Target_Tests.Test_Configure_Target_Failure'Access));
+      Ret.Add_Test
+        (Configure_Target_Caller.Create
+           ("Test Configure Target No Target",
+            Configure_Target_Tests.Test_Configure_Target_No_Target'Access));
 
       return Ret;
    end Suite;

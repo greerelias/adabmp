@@ -2,11 +2,9 @@ with Ada.Text_IO;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Strings.Unbounded;
 with Board_Info;
-with Commands;
 with Board_Info_Printer;
 with Configure_Target;
 with Interfaces;
-with Protocol;
 with Serial_Interface.Impl;
 with Device_Discovery;
 with Connection_Tester;
@@ -21,53 +19,55 @@ procedure Adabmp is
    Target_VID : constant String := "6666";
    Target_PID : constant String := "4242";
 
-   procedure Run_Connection_Test is
-      Port_Name : String (1 .. 100);
-      Port_Len  : Natural := 0;
-      Port      : Serial_Interface.Impl.Com_Port;
-      Success   : Boolean;
-      Msg       : Unbounded_String;
+   procedure Open_Device_Port
+     (Port    : in out Serial_Interface.Impl.Com_Port;
+      Success : out Boolean;
+      Verbose : in Boolean := False) is
    begin
-      Put_Line
-        ("Searching for device (VID="
-         & Target_VID
-         & ", PID="
-         & Target_PID
-         & ")...");
+      Success := False;
 
+      if Verbose then
+         Put_Line
+           ("Searching for device (VID="
+            & Target_VID
+            & ", PID="
+            & Target_PID
+            & ")...");
+      end if;
+
+      declare
+         Found : constant String :=
+           Device_Discovery.Find_Device (Target_VID, Target_PID);
       begin
-         declare
-            Found : constant String :=
-              Device_Discovery.Find_Device (Target_VID, Target_PID);
-         begin
-            if Found'Length > Port_Name'Length then
-               Put_Line ("Error: Port name too long.");
-               return;
-            end if;
-            Port_Name (1 .. Found'Length) := Found;
-            Port_Len := Found'Length;
-         end;
-      exception
-         when Device_Discovery.Device_Not_Found =>
-            Put_Line ("Error: Device not found.");
-            return;
+         if Verbose then
+            Put_Line ("Device found at " & Found);
+            Put_Line ("Opening port...");
+         end if;
+         Port.Open (Found);
+         Success := True;
       end;
+   exception
+      when Device_Discovery.Device_Not_Found =>
+         Put_Line ("Error: Device not found.");
+         return;
+      when others =>
+         Put_Line ("Error: Failed to open serial port.");
+         return;
+   end Open_Device_Port;
 
-      Put_Line ("Device found at " & Port_Name (1 .. Port_Len));
-      Put_Line ("Opening port...");
+   procedure Run_Connection_Test is
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean;
+      Msg     : Unbounded_String;
+   begin
 
-      begin
-         Port.Open (Port_Name (1 .. Port_Len));
-      exception
-         when others =>
-            Put_Line ("Error: Failed to open serial port.");
-            return;
-      end;
-
+      Open_Device_Port (Port, Success, True);
+      if not Success then
+         return;
+      end if;
       Put_Line ("Getting Programmer Info...");
 
       Connection_Tester.Get_Programmer_Info (Port, Success, Msg);
-
 
       if Success then
          Put_Line ("Found programmer firmware: " & To_String (Msg));
@@ -83,51 +83,28 @@ procedure Adabmp is
    exception
       when others =>
          Put_Line ("An unexpected error occurred.");
-         if Port_Len > 0 then
-            begin
-               Port.Close;
-            exception
-               when others =>
-                  null;
-            end;
-         end if;
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
    end Run_Connection_Test;
 
    procedure Run_Get_Board_Info is
-      Port_Name : String (1 .. 100);
-      Port_Len  : Natural := 0;
-      Port      : Serial_Interface.Impl.Com_Port;
-      Info      : Board_Info.Board_Info_Record_Access;
-      Success   : Boolean;
+      Port    : Serial_Interface.Impl.Com_Port;
+      Info    : Board_Info.Board_Info_Record_Access;
+      Success : Boolean;
    begin
-      begin
-         declare
-            Found : constant String :=
-              Device_Discovery.Find_Device (Target_VID, Target_PID);
-         begin
-            if Found'Length > Port_Name'Length then
-               Put_Line ("Error: Port name too long.");
-               return;
-            end if;
-            Port_Name (1 .. Found'Length) := Found;
-            Port_Len := Found'Length;
-         end;
-      exception
-         when Device_Discovery.Device_Not_Found =>
-            Put_Line ("Error: Device not found.");
-            return;
-      end;
-
-      begin
-         Port.Open (Port_Name (1 .. Port_Len));
-      exception
-         when others =>
-            Put_Line ("Error: Failed to open serial port.");
-            return;
-      end;
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
 
       Board_Info.Get_Board_Info (Port, Info, Success);
-      Board_Info_Printer.Print_Board_Info (Info);
+      if Success then
+         Board_Info_Printer.Print_Board_Info (Info);
+      end if;
 
       Port.Close;
    exception
@@ -135,48 +112,22 @@ procedure Adabmp is
          Put_Line ("Exception: " & Exception_Name (E));
          Put_Line ("Message:   " & Exception_Message (E));
          Put_Line ("Info:      " & Exception_Information (E));
-         if Port_Len > 0 then
-            begin
-               Port.Close;
-            exception
-               when others =>
-                  null;
-            end;
-         end if;
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
    end Run_Get_Board_Info;
 
    procedure Run_Configure_Target (Path : String) is
-      Port_Name : String (1 .. 100);
-      Port_Len  : Natural := 0;
-      Port      : Serial_Interface.Impl.Com_Port;
-      Success   : Boolean;
-      Msg       : Unbounded_String;
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean;
    begin
-      begin
-         declare
-            Found : constant String :=
-              Device_Discovery.Find_Device (Target_VID, Target_PID);
-         begin
-            if Found'Length > Port_Name'Length then
-               Put_Line ("Error: Port name too long.");
-               return;
-            end if;
-            Port_Name (1 .. Found'Length) := Found;
-            Port_Len := Found'Length;
-         end;
-      exception
-         when Device_Discovery.Device_Not_Found =>
-            Put_Line ("Error: Device not found.");
-            return;
-      end;
-
-      begin
-         Port.Open (Port_Name (1 .. Port_Len));
-      exception
-         when others =>
-            Put_Line ("Error: Failed to open serial port.");
-            return;
-      end;
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
 
       Configure_Target.Load_Bitstream (Port, Path, Success, True);
       Port.Close;
@@ -185,93 +136,48 @@ procedure Adabmp is
          Put_Line ("Exception: " & Exception_Name (E));
          Put_Line ("Message:   " & Exception_Message (E));
          Put_Line ("Info:      " & Exception_Information (E));
-         if Port_Len > 0 then
-            begin
-               Port.Close;
-            exception
-               when others =>
-                  null;
-            end;
-         end if;
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
    end Run_Configure_Target;
 
    procedure Run_UART is
-      Port_Name : String (1 .. 100);
-      Port_Len  : Natural := 0;
-      Port      : Serial_Interface.Impl.Com_Port;
-      Success   : Boolean := False;
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean := False;
    begin
-      -- TODO: move getting port name/opening port into their own functions
-      -- this code is repeated multiple times
-      ---------------------------------------------------------------------------------
+      -- Have to call Find_Device here because we want the port name
+      declare
+         Found : constant String :=
+           Device_Discovery.Find_Device (Target_VID, Target_PID);
       begin
-         declare
-            Found : constant String :=
-              Device_Discovery.Find_Device (Target_VID, Target_PID);
-         begin
-            if Found'Length > Port_Name'Length then
-               Put_Line ("Error: Port name too long.");
-               return;
-            end if;
-            Port_Name (1 .. Found'Length) := Found;
-            Port_Len := Found'Length;
-         end;
-      exception
-         when Device_Discovery.Device_Not_Found =>
-            Put_Line ("Error: Device not found.");
-            return;
+         Port.Open (Found);
+         UART.Start_UART (Port, Success);
+         if Success then
+            Put_Line ("UART Ready on: " & Found);
+         else
+            Put_Line ("Error: Failed start UART");
+         end if;
+         Port.Close;
       end;
+   exception
+      when Device_Discovery.Device_Not_Found =>
+         Put_Line ("Error: Device not found.");
 
-      begin
-         Port.Open (Port_Name (1 .. Port_Len));
-      exception
-         when others =>
-            Put_Line ("Error: Failed to open serial port.");
-            return;
-      end;
-      UART.Start_UART (Port, Success);
-      if Success then
-         Put_Line ("UART Ready on: " & Port_Name (1 .. Port_Len));
-      else
-         Put_Line ("Error: Failed start UART");
-      end if;
-      Port.Close;
+      when others =>
+         Put_Line ("Error: Failed to open serial port.");
    end Run_UART;
 
    procedure Run_Flash_Bitstream (Path : String) is
-      Port_Name : String (1 .. 100);
-      Port_Len  : Natural := 0;
-      Port      : Serial_Interface.Impl.Com_Port;
-      Success   : Boolean := False;
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean := False;
    begin
-      -- TODO: move getting port name/opening port into their own functions
-      -- this code is repeated multiple times
-      ---------------------------------------------------------------------------------
-      begin
-         declare
-            Found : constant String :=
-              Device_Discovery.Find_Device (Target_VID, Target_PID);
-         begin
-            if Found'Length > Port_Name'Length then
-               Put_Line ("Error: Port name too long.");
-               return;
-            end if;
-            Port_Name (1 .. Found'Length) := Found;
-            Port_Len := Found'Length;
-         end;
-      exception
-         when Device_Discovery.Device_Not_Found =>
-            Put_Line ("Error: Device not found.");
-            return;
-      end;
-
-      begin
-         Port.Open (Port_Name (1 .. Port_Len));
-      exception
-         when others =>
-            Put_Line ("Error: Failed to open serial port.");
-            return;
-      end;
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
       Flash_Target.Flash_Bitstream (Port, Path, Success, True);
       Port.Close;
    exception
@@ -279,23 +185,19 @@ procedure Adabmp is
          Put_Line ("Exception: " & Exception_Name (E));
          Put_Line ("Message:   " & Exception_Message (E));
          Put_Line ("Info:      " & Exception_Information (E));
-         if Port_Len > 0 then
-            begin
-               Port.Close;
-            exception
-               when others =>
-                  null;
-            end;
-         end if;
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
    end Run_Flash_Bitstream;
 
    procedure Run_Flash_Firmware (Path : String; Address_Str : String := "") is
       use type Interfaces.Unsigned_32;
-      Port_Name : String (1 .. 100);
-      Port_Len  : Natural := 0;
-      Port      : Serial_Interface.Impl.Com_Port;
-      Success   : Boolean := False;
-      Address   : Interfaces.Unsigned_32;
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean := False;
+      Address : Interfaces.Unsigned_32;
    begin
       if Address_Str = "" then
          Address := 16#300000#;
@@ -332,34 +234,10 @@ procedure Adabmp is
          return;
       end if;
 
-      -- TODO: move getting port name/opening port into their own functions
-      -- this code is repeated multiple times
-      ---------------------------------------------------------------------------------
-      begin
-         declare
-            Found : constant String :=
-              Device_Discovery.Find_Device (Target_VID, Target_PID);
-         begin
-            if Found'Length > Port_Name'Length then
-               Put_Line ("Error: Port name too long.");
-               return;
-            end if;
-            Port_Name (1 .. Found'Length) := Found;
-            Port_Len := Found'Length;
-         end;
-      exception
-         when Device_Discovery.Device_Not_Found =>
-            Put_Line ("Error: Device not found.");
-            return;
-      end;
-
-      begin
-         Port.Open (Port_Name (1 .. Port_Len));
-      exception
-         when others =>
-            Put_Line ("Error: Failed to open serial port.");
-            return;
-      end;
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
       Flash_Target.Flash_Firmware (Port, Path, Success, Address, True);
       Port.Close;
    exception
@@ -367,43 +245,64 @@ procedure Adabmp is
          Put_Line ("Exception: " & Exception_Name (E));
          Put_Line ("Message:   " & Exception_Message (E));
          Put_Line ("Info:      " & Exception_Information (E));
-         if Port_Len > 0 then
-            begin
-               Port.Close;
-            exception
-               when others =>
-                  null;
-            end;
-         end if;
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
    end Run_Flash_Firmware;
 
 begin
    if Argument_Count = 0 then
-      Put_Line ("--- Commands ---");
+      Put_Line ("--- Ada Baremetal Programmer Commands ---");
       Put_Line
-        ("'adabmp --test-connection'  : Tests connection to programmer");
+        ("  -t, --test-connection                  : Tests connection to programmer");
       Put_Line
-        ("'adabmp --board-info'       : Retrieves information about target board");
+        ("  -i, --board-info                       : Retrieves information about target board");
+      Put_Line
+        ("  -c, --configure-target <path>          : Configure target with bitstream");
+      Put_Line
+        ("  -u, -uart                              : Start UART interface");
+      Put_Line
+        ("  -b, --flash-bitstream <path>           : Flash bitstream to target");
+      Put_Line
+        ("  -f, --flash-firmware <path> [address]  : Flash firmware to target (address defaults to 0x300000)");
       return;
    end if;
 
-   if Argument (1) = "--test-connection" then
+   if Argument (1) = "-t" or Argument (1) = "--test-connection" then
       Run_Connection_Test;
-   elsif Argument (1) = "--board-info" then
+   elsif Argument (1) = "-i" or Argument (1) = "--board-info" then
       Run_Get_Board_Info;
-   elsif Argument (1) = "-ct" and then Argument_Count > 1 then
-      Run_Configure_Target (Argument (2));
-   elsif Argument (1) = "--uart" or Argument (1) = "-u" then
-      Run_UART;
-   elsif Argument (1) = "-fb" and then Argument_Count > 1 then
-      Run_Flash_Bitstream (Argument (2));
-   elsif Argument (1) = "-ff" and then Argument_Count > 1 then
-      if Argument_Count > 2 then
-         Run_Flash_Firmware (Argument (2), Argument (3));
+   elsif Argument (1) = "-c" or Argument (1) = "--configure-target" then
+      if Argument_Count > 1 then
+         Run_Configure_Target (Argument (2));
       else
-         Put_Line
-           ("No base address provided, defaulting to 0x300000." & ASCII.LF);
-         Run_Flash_Firmware (Argument (2));
+         Put_Line ("Error: Missing bitstream path.");
+         return;
+      end if;
+   elsif Argument (1) = "-u" or Argument (1) = "-uart" then
+      Run_UART;
+   elsif Argument (1) = "-b" or Argument (1) = "--flash-bitstream" then
+      if Argument_Count > 1 then
+         Run_Flash_Bitstream (Argument (2));
+      else
+         Put_Line ("Error: Missing bitstream file path.");
+         return;
+      end if;
+   elsif Argument (1) = "-f" or Argument (1) = "--flash-firmware" then
+      if Argument_Count > 1 then
+         if Argument_Count > 2 then
+            Run_Flash_Firmware (Argument (2), Argument (3));
+         else
+            Put_Line
+              ("No base address provided, defaulting to 0x300000." & ASCII.LF);
+            Run_Flash_Firmware (Argument (2));
+         end if;
+      else
+         Put_Line ("Error: Missing firmware file path.");
+         return;
       end if;
    else
       Put_Line ("Unknown argument: " & Argument (1));
