@@ -252,9 +252,11 @@ package body Flash_Target is
          Success  => Success,
          Verbose  => Verbose,
          SPI_JTAG => True);
+
       if Success then
          Erase_Flash (Port, Bitstream_Size_U32, Success, 0, Verbose);
       end if;
+
       if Success then
          Flash
            (Port,
@@ -265,6 +267,7 @@ package body Flash_Target is
             0,
             Verbose);
       end if;
+
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>
          TIO.Put_Line ("Failure: File " & Path & " not found.");
@@ -298,18 +301,20 @@ package body Flash_Target is
          Success  => Success,
          Verbose  => Verbose,
          SPI_JTAG => True);
+
       if Success then
          File_Size := Unsigned_32 (DIR.Size (Path));
          Erase_Flash (Port, File_Size, Success, Base_Address, Verbose);
-         if Success then
-            Flash
-              (Port         => Port,
-               Path         => Path,
-               Data_Size    => File_Size,
-               Success      => Success,
-               Base_Address => Base_Address,
-               Verbose      => Verbose);
-         end if;
+      end if;
+
+      if Success then
+         Flash
+           (Port         => Port,
+            Path         => Path,
+            Data_Size    => File_Size,
+            Success      => Success,
+            Base_Address => Base_Address,
+            Verbose      => Verbose);
       end if;
    exception
       when ADA.IO_EXCEPTIONS.NAME_ERROR =>

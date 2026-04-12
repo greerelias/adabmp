@@ -1,5 +1,8 @@
 /obj/
-/bin/
+/bin/*
 /alire/
 /config/
 .github
+
+!/bin/test_files/
+!/bin/spi_jtag/

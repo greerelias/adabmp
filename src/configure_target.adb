@@ -13,6 +13,7 @@ with Commands;
 with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Characters.Latin_1;
 with Progress_Bar;
+with Board_Info;
 use type Progress_Bar.Volatile_Integer;
 
 package body Configure_Target is
@@ -37,8 +38,12 @@ package body Configure_Target is
       package TIO renames Ada.Text_IO;
 
       Bar_Task : Progress_Bar.Bar_Task;
+      Info     : Board_Info.Board_Info_Record_Access;
    begin
-
+      Board_Info.Get_Board_Info (Port, Info, Success);
+      if not Success then
+         return;
+      end if;
       Success := False;
       Bitstream_Header := Bitstream_Parser.Parse_Header (Path);
       -- TODO add checks for fpga part #
