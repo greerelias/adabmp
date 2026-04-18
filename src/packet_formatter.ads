@@ -8,7 +8,7 @@ package Packet_Formatter is
 
    --  Maximum data size allowed (strictly less than 254 bytes)
    -- TODO: figure out optimal packet size
-   Max_Data_Size : constant Stream_Element_Offset := 253;
+   Max_Data_Size : constant Stream_Element_Offset := 60;
 
    --  Constructs a packet: [SOF] [CMD] [DATA]
    --  Raises Constraint_Error if Data'Length > Max_Data_Size

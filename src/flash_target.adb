@@ -17,7 +17,6 @@ with Ada.Directories;
 with Progress_Bar;
 use type Progress_Bar.Volatile_Integer;
 
-
 package body Flash_Target is
    package TIO renames Ada.Text_IO;
 
@@ -159,8 +158,6 @@ package body Flash_Target is
             return;
          end if;
       end;
-      -- TODO: make status message optional
-      -- Write first 1KB
       if Verbose then
          Bar_Task.Start
            ("Flashing Target...",
@@ -169,6 +166,7 @@ package body Flash_Target is
             Bytes_Sent'Unchecked_Access,
             True);
       end if;
+      -- Write first 1KB
       Read (Input_File, Data, Length);
       Port.Write (Data (1 .. Length));
       Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);

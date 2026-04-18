@@ -3,7 +3,7 @@ with Packet_Formatter;
 with Serial_Interface;
 
 package Protocol is
-
+   Frame_Size : constant Stream_Element := 64;
    --  Encodes the input data using COBS (Consistent Overhead Byte Stuffing).
    --  The result does not contain any 0x00 bytes.
    --  The result does NOT include the trailing 0x00 delimiter; the caller should add it if needed for transmission.

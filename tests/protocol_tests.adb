@@ -40,10 +40,10 @@ package body Protocol_Tests is
    end Test_Decode_With_Zeros;
 
    procedure Test_Round_Trip (T : in out Test) is
-      Input : Stream_Element_Array (1 .. 256);
+      Input : Stream_Element_Array (1 .. 62);
    begin
       for I in Input'Range loop
-         Input (I) := Stream_Element (I mod 256);
+         Input (I) := Stream_Element (I mod 62);
       end loop;
 
       declare

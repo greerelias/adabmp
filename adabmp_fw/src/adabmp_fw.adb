@@ -5,7 +5,6 @@ with RP.Clock;
 with RP.Uart;  use RP.Uart;
 with Pico;
 
-
 with HAL;                 use HAL;
 with RP.GPIO;
 with RP.GPIO.Interrupts;
@@ -132,7 +131,7 @@ package body AdaBMP_FW is
             end if;
          end if;
       end loop;
-   end;
+   end Run_Connection_Test;
 
    procedure Send_Board_Info is
       Info       : aliased UInt32 := 0;
@@ -140,7 +139,7 @@ package body AdaBMP_FW is
       with Import, Convention => Ada, Address => Info'Address;
    begin
       JTAG.Get_Board_Info (Info);
-      if Info > 0 then
+      if Info > 0 and then Info < 16#FFFF_FFFF# then
          declare
             Packet : constant UInt8_Array :=
               Encode (Make_Packet (Data_Packet, Info_Bytes));
@@ -508,6 +507,7 @@ package body AdaBMP_FW is
                   declare
                      Packet : UInt8_Array :=
                        Decode (USB_Rx (1 .. Integer (Length - 1)));
+
                   begin
                      if Is_Valid (Packet) then
                         Handle_Command (Packet);

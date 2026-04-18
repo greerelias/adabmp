@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/bin/adabmp",
             "args": [
-                "-i"
+                "-t"
             ],
             "cwd": "${workspaceFolder}/bin",
             "preLaunchTask": "ada: Build current project",
@@ -23,10 +23,10 @@
             ]
         },
         {
-            "name": "Debug test_runner_ts3 (gdb)",
+            "name": "Debug test_runner_ts6 (gdb)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/test_runner_ts3",
+            "program": "${workspaceFolder}/bin/test_runner_ts6",
             "args": [],
             "cwd": "${workspaceFolder}/bin",
             "preLaunchTask": "ada: Build current project",
@@ -38,6 +38,11 @@
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
+                },
+                {
+                    "description": "Halt on any Ada exception",
+                    "text": "catch exception",
+                    "ignoreFailures": false
                 }
             ]
         }

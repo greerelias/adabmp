@@ -77,6 +77,8 @@ procedure Adabmp is
          else
             Put_Line ("Result: " & To_String (Msg));
          end if;
+      else
+         Put_Line ("Error: Programmer Info Not Received.");
       end if;
 
       Port.Close;
