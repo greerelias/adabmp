@@ -238,7 +238,7 @@ package body AdaBMP_FW is
       Pico.LED.Configure (RP.GPIO.Output);
       UART.Configure
         (Config =>
-           (Baud      => 19200,
+           (Baud      => 115200,
             Word_Size => 8,
             Parity    => False,
             Stop_Bits => 1,
@@ -324,11 +324,11 @@ package body AdaBMP_FW is
          Length := 64;
          -- Get up to 64 Bytes
          USB_Serial.Read (Data'Address, Length);
-         Last_Read := Clock;
          if Length > 0 then
             declare
                Words : constant Integer := Integer (Length / 4);
             begin
+               Last_Read := Clock;
                for I in 1 .. Words loop
                   declare
                      Is_Last_Page_Word : constant Boolean :=
