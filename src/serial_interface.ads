@@ -17,7 +17,4 @@ package Serial_Interface is
       Last   : out Ada.Streams.Stream_Element_Offset)
    is abstract;
 
-   --  Factory function type to create a port
-   type Port_Factory is access function return Serial_Port'Class;
-
 end Serial_Interface;

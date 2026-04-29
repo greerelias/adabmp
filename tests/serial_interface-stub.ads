@@ -1,5 +1,3 @@
-with Serial_Interface;
-with Ada.Streams;           use Ada.Streams;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Packet_Formatter;
 

@@ -16,16 +16,19 @@ package Protocol is
    Decode_Error    : exception;
    Buffer_Overflow : exception;
 
-   --  High-level operations
+   --  Encode and send a packet
    procedure Send_Packet
      (Port : in out Serial_Interface.Serial_Port'Class;
       Data : Stream_Element_Array);
 
+   -- Receive and decode a packet
    procedure Receive_Packet
      (Port : in out Serial_Interface.Serial_Port'Class;
       Data : out Stream_Element_Array;
       Last : out Stream_Element_Offset);
 
+   -- Attempts to read a packet containing the ready command from programmer
+   -- Returns True if ready command received
    function Receive_Ready_Packet
      (Port : in out Serial_Interface.Serial_Port'Class) return Boolean;
 

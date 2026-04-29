@@ -155,7 +155,7 @@ package body Protocol is
      (Port    : in out Serial_Interface.Serial_Port'Class;
       Command : Packet_Formatter.Command_Id)
    is
-      Command_Packet : Stream_Element_Array :=
+      Command_Packet : constant Stream_Element_Array :=
         Make_Packet (Command, (1 .. 0 => 0));
    begin
       Send_Packet (Port, Command_Packet);

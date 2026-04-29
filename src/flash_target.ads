@@ -3,6 +3,7 @@ with Serial_Interface;
 with Interfaces;            use Interfaces;
 
 package Flash_Target is
+   -- Path to SPI over JTAG bitstream for Basys 3 board
    SPI_JTAG_BS_Path : constant String :=
      "./spi_jtag/spiOverJtag_xc7a35tcpg236.bit";
    Block_Size_64    : constant Unsigned_32 := 2 ** 16;

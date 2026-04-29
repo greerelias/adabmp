@@ -1,4 +1,3 @@
-with Ada.Streams.Stream_IO; use Ada.Streams.Stream_IO;
 with Serial_Interface;
 
 package Configure_Target is

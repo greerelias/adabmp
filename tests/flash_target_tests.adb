@@ -1,10 +1,7 @@
 with Ada.Characters.Latin_1;
-with Ada.Streams;      use Ada.Streams;
 with AUnit.Assertions; use AUnit.Assertions;
 with Flash_Target;
 with Serial_Interface.Stub;
-with Packet_Formatter; use Packet_Formatter;
-with Protocol;         use Protocol;
 
 package body Flash_Target_Tests is
 

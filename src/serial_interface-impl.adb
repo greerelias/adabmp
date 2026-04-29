@@ -1,5 +1,3 @@
-with GNAT.Serial_Communications;
-
 package body Serial_Interface.Impl is
 
    package GSC renames GNAT.Serial_Communications;

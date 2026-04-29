@@ -26,7 +26,7 @@ package body Connection_Tester_Tests is
       Port     : Serial_Interface.Stub.Mock_Port;
       Success  : Boolean;
       Msg      : Unbounded_String;
-      Bad_Data : Stream_Element_Array := (2, 1, 0); -- Decodes to (1)
+      Bad_Data : constant Stream_Element_Array := (2, 1, 0); -- Decodes to (1)
    begin
       Port.Enabled := False;
       Port.Set_Input (Bad_Data);
@@ -89,7 +89,6 @@ package body Connection_Tester_Tests is
    end Test_Get_Programmer_Info;
 
    procedure Test_Get_Programmer_Info_Failure (T : in out Test) is
-      use Packet_Formatter;
       Port    : Serial_Interface.Stub.Mock_Port;
       Success : Boolean;
       Info    : Unbounded_String;

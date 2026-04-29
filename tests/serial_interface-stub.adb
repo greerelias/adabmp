@@ -1,7 +1,5 @@
-with Ada.Streams; use Ada.Streams;
 with Commands;
 with Protocol;
-with Serial_Interface.Stub;
 
 package body Serial_Interface.Stub is
 
@@ -28,9 +26,8 @@ package body Serial_Interface.Stub is
          case Port.State is
             when Idle               =>
                declare
-                  Decoded         : Stream_Element_Array :=
+                  Decoded : constant Stream_Element_Array :=
                     Decode (Data (Data'First .. Data'Last - 1));
-                  Connection_Test : Boolean := false;
                begin
                   if Is_Valid (Decoded) then
                      case Get_Command (Decoded) is
@@ -42,23 +39,25 @@ package body Serial_Interface.Stub is
                         when Get_Board_Info   =>
                            if Port.Board_Enabled then
                               declare
-                                 Response : Stream_Element_Array (1 .. 8) :=
-                                   (16#07#,
-                                    16#AA#,
-                                    16#02#,
-                                    16#03#,
-                                    16#62#,
-                                    16#D0#,
-                                    16#93#,
-                                    16#00#);
+                                 Response :
+                                   constant Stream_Element_Array (1 .. 8) :=
+                                     (16#07#,
+                                      16#AA#,
+                                      16#02#,
+                                      16#03#,
+                                      16#62#,
+                                      16#D0#,
+                                      16#93#,
+                                      16#00#);
                               begin
                                  Port.Set_Input (Response);
                               end;
                            else
                               -- No communication with target case
                               declare
-                                 Response : Stream_Element_Array (1 .. 4) :=
-                                   (16#03#, 16#AA#, 16#B#, 16#00#);
+                                 Response :
+                                   constant Stream_Element_Array (1 .. 4) :=
+                                     (16#03#, 16#AA#, 16#B#, 16#00#);
                               begin
                                  Port.Set_Input (Response);
                               end;
@@ -142,6 +141,7 @@ package body Serial_Interface.Stub is
                   end if;
                exception
                   when E : Protocol.Decode_Error =>
+                     pragma Unreferenced (E);
                      -- ignore
                      null;
                end;
@@ -270,10 +270,11 @@ package body Serial_Interface.Stub is
    end Set_Board_Info_Response;
 
    procedure Send_Ready_Packet (Port : in out Mock_Port) is
-      Ready_Packet  : Stream_Element_Array :=
+      Ready_Packet  : constant Stream_Element_Array :=
         Packet_Formatter.Make_Packet
           (Commands.Ready, (1 .. 0 => 0)); -- Empty payload
-      Encoded_Ready : Stream_Element_Array := Protocol.Encode (Ready_Packet);
+      Encoded_Ready : constant Stream_Element_Array :=
+        Protocol.Encode (Ready_Packet);
       Final_Packet  : Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
    begin
       Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;
@@ -284,9 +285,10 @@ package body Serial_Interface.Stub is
    procedure Send_Command_Packet
      (Port : in out Mock_Port; Command : in Packet_Formatter.Command_Id)
    is
-      Ready_Packet  : Stream_Element_Array :=
+      Ready_Packet  : constant Stream_Element_Array :=
         Packet_Formatter.Make_Packet (Command, (1 .. 0 => 0)); -- Empty payload
-      Encoded_Ready : Stream_Element_Array := Protocol.Encode (Ready_Packet);
+      Encoded_Ready : constant Stream_Element_Array :=
+        Protocol.Encode (Ready_Packet);
       Final_Packet  : Stream_Element_Array (1 .. Encoded_Ready'Length + 1);
    begin
       Final_Packet (1 .. Encoded_Ready'Length) := Encoded_Ready;

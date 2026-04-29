@@ -1,4 +1,3 @@
-with Ada.Streams; use Ada.Streams;
 with GNAT.Serial_Communications;
 
 package Serial_Interface.Impl is

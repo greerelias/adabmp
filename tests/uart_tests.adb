@@ -3,7 +3,7 @@ with AUnit.Assertions; use AUnit.Assertions;
 with Commands;
 with Serial_Interface.Stub;
 with Packet_Formatter; use Packet_Formatter;
-with Protocol;         use Protocol;
+with Protocol;
 with UART;
 
 package body UART_Tests is

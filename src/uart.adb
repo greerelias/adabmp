@@ -1,4 +1,3 @@
-with GNAT.Spitbol;
 with Protocol;
 with Commands;
 

@@ -1,17 +1,12 @@
-with Ada.Streams;           use Ada.Streams;
+with Ada.Streams;      use Ada.Streams;
 with Configure_Target;
-with Serial_Interface;
-with Bitstream_Parser;      use Bitstream_Parser;
+with Bitstream_Parser; use Bitstream_Parser;
 with Ada.Text_IO;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.IO_Exceptions;
-with Ada.Streams.Stream_IO; use Ada.Streams.Stream_IO;
 with Ada.Exceptions;
-with Protocol;              use Protocol;
-with Packet_Formatter;      use Packet_Formatter;
-with Interfaces;            use Interfaces;
+with Protocol;
+with Packet_Formatter; use Packet_Formatter;
 with Commands;
-with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Characters.Latin_1;
 with Ada.Directories;
 with Progress_Bar;
@@ -32,10 +27,8 @@ package body Flash_Target is
       Length           : Stream_Element_Offset;
       Base_Address_Arr : Stream_Element_Array (1 .. 4)
       with Address => Base_Address'Address;
-      Rx_Buffer        : Stream_Element_Array (1 .. 64);
-      Rx_Last          : Stream_Element_Offset;
-      Blocks_64        : Unsigned_32 := (Data_Size / Block_Size_64);
-      Blocks_32        : Unsigned_32 :=
+      Blocks_64        : constant Unsigned_32 := (Data_Size / Block_Size_64);
+      Blocks_32        : constant Unsigned_32 :=
         (Data_Size mod Block_Size_64) / Block_Size_32;
       Sectors          : Unsigned_32 :=
         (((Data_Size mod Block_Size_64) mod Block_Size_32) + 4095)
@@ -50,7 +43,7 @@ package body Flash_Target is
    begin
       Success := False;
       -- Data packet needed for erase
-      -- Base Address | 4kb Sectors | 32kb Blocks | 64kb Blocks
+      -- [SOF][Flash_Erase][Base Address | 4kb Sectors | 32kb Blocks | 64kb Blocks]
       Payload (1 .. 8) := Base_Address_Arr & Sector_Arr;
       Payload (9) := Stream_Element (Blocks_32);
       Payload (10) := Stream_Element (Blocks_64);
@@ -76,7 +69,7 @@ package body Flash_Target is
          Protocol.Receive_Packet (Port, Data, Length);
          if Is_Valid (Data (1 .. Length)) then
             declare
-               Cmd : Command_Id := Get_Command (Data (1 .. Length));
+               Cmd : constant Command_Id := Get_Command (Data (1 .. Length));
             begin
                case Cmd is
                   when Commands.Block64_Erase_Done   =>
@@ -112,6 +105,7 @@ package body Flash_Target is
 
    exception
       when Other_Err : others =>
+         pragma Unreferenced (Other_Err);
          Bar_Task.Stop (False);
          raise;
    end Erase_Flash;
@@ -134,8 +128,6 @@ package body Flash_Target is
       with Address => Base_Address'Address;
       Total            : aliased Progress_Bar.Volatile_Integer;
       Bytes_Sent       : aliased Progress_Bar.Volatile_Integer := 0;
-      Rx_Buffer        : Stream_Element_Array (1 .. 64);
-      Rx_Last          : Stream_Element_Offset;
 
       Bar_Task : Progress_Bar.Bar_Task;
    begin
@@ -145,6 +137,8 @@ package body Flash_Target is
       Total := Progress_Bar.Volatile_Integer (Data_Size);
       Open (Input_File, In_File, Path);
       Set_Index (Input_File, Data_Offset);
+      -- Data packet for flash
+      -- [SOF][Flash_Target][Data Size | Base Address]
       declare
          Payload : constant Stream_Element_Array :=
            Data_Size_Arr & Base_Address_Arr;
@@ -222,6 +216,7 @@ package body Flash_Target is
       when Fmt_Err : Format_Error =>
          TIO.Put_Line (Ada.Exceptions.Exception_Message (Fmt_Err));
       when Other_Err : others =>
+         pragma Unreferenced (Other_Err);
          if Is_Open (Input_File) then
             Close (Input_File);
          end if;
@@ -272,6 +267,7 @@ package body Flash_Target is
       when Fmt_Err : Format_Error =>
          TIO.Put_Line (Ada.Exceptions.Exception_Message (Fmt_Err));
       when Other_Err : others =>
+         pragma Unreferenced (Other_Err);
          if Is_Open (Bitstream) then
             Close (Bitstream);
          end if;

@@ -24,7 +24,6 @@ package body Device_Discovery_Tests is
       end;
    end Test_Find_Device_Success;
 
-
    procedure Test_Find_Device_Not_Found (T : in out Test) is
       FS : aliased Filesystem.Stub.Mock_Filesystem;
    begin
@@ -38,6 +37,7 @@ package body Device_Discovery_Tests is
       declare
          Result : constant String :=
            Device_Discovery.Find_Device ("1234", "5678", FS'Access);
+         pragma Unreferenced (Result);
       begin
          Assert (False, "Should have raised Device_Not_Found");
       end;

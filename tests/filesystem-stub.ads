@@ -1,7 +1,5 @@
-with Filesystem;
 with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Containers.Hashed_Maps;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Strings.Hash;
 
 package Filesystem.Stub is

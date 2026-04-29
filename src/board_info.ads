@@ -1,10 +1,8 @@
-with Ada.Streams;
 with Serial_Interface;
-with Interfaces;       use Interfaces;
-with Ada.Streams;      use Ada.Streams;
+with Interfaces;  use Interfaces;
+with Ada.Streams; use Ada.Streams;
 
 package Board_Info is
-
 
    -- TODO: Ask Olivier about needing to use these custom bit types?
    type Unsigned_11 is mod 2 ** 11;
@@ -26,7 +24,6 @@ package Board_Info is
        Version       at 0 range 28 .. 31;
      end record;
 
-
    type Board_Info_Record_Access (As_Array : Boolean := False) is record
       case As_Array is
          when False =>
@@ -43,6 +40,8 @@ package Board_Info is
    Communication_Error : exception;
 
    procedure Get_Board_Info
-     (Port : in out Serial_Interface.Serial_Port'Class; Info: out Board_Info_Record_Access; Success : out Boolean);
+     (Port    : in out Serial_Interface.Serial_Port'Class;
+      Info    : out Board_Info_Record_Access;
+      Success : out Boolean);
 
 end Board_Info;

@@ -16,6 +16,7 @@ procedure Adabmp is
    use Ada.Text_IO;
    use Ada.Strings.Unbounded;
 
+   -- AdaBMP Programmer USB Vendor & Product Id
    Target_VID : constant String := "6666";
    Target_PID : constant String := "4242";
 
@@ -265,7 +266,7 @@ begin
       Put_Line
         ("  -c, --configure-target <path>          : Configure target with bitstream");
       Put_Line
-        ("  -u, -uart                              : Start UART interface");
+        ("  -u, --uart                              : Start UART interface");
       Put_Line
         ("  -b, --flash-bitstream <path>           : Flash bitstream to target");
       Put_Line
@@ -284,7 +285,7 @@ begin
          Put_Line ("Error: Missing bitstream path.");
          return;
       end if;
-   elsif Argument (1) = "-u" or Argument (1) = "-uart" then
+   elsif Argument (1) = "-u" or Argument (1) = "--uart" then
       Run_UART;
    elsif Argument (1) = "-b" or Argument (1) = "--flash-bitstream" then
       if Argument_Count > 1 then

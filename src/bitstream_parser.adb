@@ -1,5 +1,4 @@
 with Ada.Streams.Stream_IO; use Ada.Streams.Stream_IO;
-with Ada.Strings.Unbounded;
 with Ada.IO_Exceptions;
 
 package body Bitstream_Parser is
@@ -38,7 +37,7 @@ package body Bitstream_Parser is
    begin
       Open (File, In_File, Filename);
 
-      -- 1. Search for start key 'a' safely
+      -- 1. Search for start key 'a'
       -- We scan byte-by-byte until we find 'a' or hit EOF.
       while not End_Of_File (File) loop
          Character'Read (Stream (File), Key);
@@ -55,7 +54,7 @@ package body Bitstream_Parser is
 
       -- 2. Parse Keys (b, c, d, ...) until we find 'e'
       loop
-         -- Safety check: If file ends while expecting a key/value, it's invalid
+         -- If file ends while expecting a key/value, it's invalid
          if End_Of_File (File) then
             Close (File);
             raise Format_Error
@@ -67,7 +66,7 @@ package body Bitstream_Parser is
          Len := Read_BE_16 (File);
 
          -- Read the Value string
-         -- Note: We check if the file has enough bytes left (basic safety)
+         -- Note: We check if the file has enough bytes left
          if Index (File) + Ada.Streams.Stream_IO.Count (Len) > Size (File) + 1
          then
             Close (File);

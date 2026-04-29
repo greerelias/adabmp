@@ -1,4 +1,3 @@
-with Ada.Strings.Bounded;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Numerics.Discrete_Random;
 with Ada.Text_IO;           use Ada.Text_IO;
@@ -7,7 +6,6 @@ with Protocol;
 with Packet_Formatter;
 with Commands;              use Commands;
 with Progress_Bar;
-use type Progress_Bar.Volatile_Integer;
 
 package body Connection_Tester is
 
@@ -192,7 +190,7 @@ package body Connection_Tester is
          delay 0.001;
       end loop;
 
-      if Success_Cnt > Integer (Test_Count'Last * 0.95) then
+      if Success_Cnt > Integer (Float (Test_Count'Last) * 0.95) then
          Success := True;
          Message :=
            To_Unbounded_String

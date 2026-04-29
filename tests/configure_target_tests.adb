@@ -1,12 +1,8 @@
-with Ada.Streams;      use Ada.Streams;
 with AUnit.Assertions; use AUnit.Assertions;
 with Configure_Target;
 with Serial_Interface.Stub;
-with Packet_Formatter; use Packet_Formatter;
-with Protocol;         use Protocol;
 
 package body Configure_Target_Tests is
-
 
    procedure Test_Configure_Target_Success (T : in out Test) is
       Port    : Serial_Interface.Stub.Mock_Port;

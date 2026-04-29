@@ -1,4 +1,3 @@
-with Interfaces;       use Interfaces;
 with Packet_Formatter; use Packet_Formatter;
 
 package Commands is

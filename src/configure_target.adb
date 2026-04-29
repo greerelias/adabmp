@@ -1,19 +1,16 @@
 with Ada.Streams;           use Ada.Streams;
-with Serial_Interface;
 with Bitstream_Parser;      use Bitstream_Parser;
 with Ada.Text_IO;
-with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.IO_Exceptions;
-with Ada.Streams.Stream_IO; use Ada.Streams.Stream_IO;
 with Ada.Exceptions;
-with Protocol;              use Protocol;
+with Protocol;
 with Packet_Formatter;      use Packet_Formatter;
 with Interfaces;            use Interfaces;
 with Commands;
-with Ada.Strings.Fixed;     use Ada.Strings.Fixed;
 with Ada.Characters.Latin_1;
 with Progress_Bar;
 with Board_Info;
+with Ada.Streams.Stream_IO; use Ada.Streams.Stream_IO;
 use type Progress_Bar.Volatile_Integer;
 
 package body Configure_Target is
@@ -33,8 +30,6 @@ package body Configure_Target is
       with Address => Bitstream_Size'Address;
       Total              : aliased Progress_Bar.Volatile_Integer;
       Bytes_Sent         : aliased Progress_Bar.Volatile_Integer := 0;
-      Rx_Buffer          : Stream_Element_Array (1 .. 64);
-      Rx_Last            : Stream_Element_Offset;
       package TIO renames Ada.Text_IO;
 
       Bar_Task : Progress_Bar.Bar_Task;
@@ -46,12 +41,12 @@ package body Configure_Target is
       end if;
       Success := False;
       Bitstream_Header := Bitstream_Parser.Parse_Header (Path);
-      -- TODO add checks for fpga part #
       Bitstream_Size_U32 := Bitstream_Header.Data_Length;
       Total := Progress_Bar.Volatile_Integer (Bitstream_Size_U32);
       Open (Bitstream, In_File, Path);
       Set_Index (Bitstream, Bitstream_Header.Data_Offset);
-      -- Send configure target command and bitstream size
+      -- Data packet for configure target
+      -- [SOF][Configure_Target][Bitstream Size]
       declare
          Packet : constant Stream_Element_Array :=
            Make_Packet (Commands.Configure_Target, Bitstream_Size);
@@ -64,7 +59,6 @@ package body Configure_Target is
          Close (Bitstream);
          return;
       end if;
-      -- TODO: make status message optional
       if Verbose then
          if SPI_JTAG then
             Bar_Task.Start
@@ -106,7 +100,6 @@ package body Configure_Target is
          Port.Write (Data (1 .. Length));
          Bytes_Sent := Bytes_Sent + Progress_Bar.Volatile_Integer (Length);
       end loop;
-      --  TIO.Put_Line ("Bytes sent" & Bytes_Sent'Image);
       Close (Bitstream);
       Protocol.Receive_Packet (Port, Data, Length);
       declare
@@ -129,6 +122,7 @@ package body Configure_Target is
       when E : Format_Error =>
          TIO.Put_Line (Ada.Exceptions.Exception_Message (E));
       when E : others =>
+         pragma Unreferenced (E);
          if Is_Open (Bitstream) then
             Close (Bitstream);
          end if;

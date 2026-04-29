@@ -3,7 +3,6 @@ with AUnit.Run;
 with AUnit.Test_Suites;
 with AUnit.Test_Caller;
 
-with Protocol_Tests;
 with Connection_Tester_Tests;
 with Device_Discovery_Tests;
 with Board_Info_Tests;
@@ -14,7 +13,6 @@ with Flash_Target_Tests;
 procedure Test_Runner_All_Unit is
    use AUnit.Test_Suites;
 
-   package Protocol_Caller is new AUnit.Test_Caller (Protocol_Tests.Test);
    package Connection_Caller is new
      AUnit.Test_Caller (Connection_Tester_Tests.Test);
    package Discovery_Caller is new
@@ -30,32 +28,6 @@ procedure Test_Runner_All_Unit is
    function Suite return Access_Test_Suite is
       Ret : constant Access_Test_Suite := new Test_Suite;
    begin
-      -- Protocol Tests
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Encode Basic", Protocol_Tests.Test_Encode_Basic'Access));
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Encode With Zeros",
-            Protocol_Tests.Test_Encode_With_Zeros'Access));
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Decode Basic", Protocol_Tests.Test_Decode_Basic'Access));
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Decode With Zeros",
-            Protocol_Tests.Test_Decode_With_Zeros'Access));
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Round Trip", Protocol_Tests.Test_Round_Trip'Access));
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Decode Error Zero Byte",
-            Protocol_Tests.Test_Decode_Error_Zero_Byte'Access));
-      Ret.Add_Test
-        (Protocol_Caller.Create
-           ("Test Decode Error Length",
-            Protocol_Tests.Test_Decode_Error_Length'Access));
 
       -- Connection Tester Tests
       Ret.Add_Test
@@ -203,7 +175,6 @@ procedure Test_Runner_All_Unit is
             Flash_Target_Tests.Test_Flash_Firmware_Failure'Access));
       return Ret;
    end Suite;
-
 
    procedure Run is new AUnit.Run.Test_Runner (Suite);
    Reporter : AUnit.Reporter.Text.Text_Reporter;

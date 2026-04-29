@@ -60,6 +60,7 @@ package body Protocol_Tests is
    begin
       declare
          Result : constant Stream_Element_Array := Protocol.Decode (Input);
+         pragma Unreferenced (Result);
       begin
          Assert (False, "Should have raised Decode_Error");
       end;
@@ -74,6 +75,7 @@ package body Protocol_Tests is
    begin
       declare
          Result : constant Stream_Element_Array := Protocol.Decode (Input);
+         pragma Unreferenced (Result);
       begin
          Assert (False, "Should have raised Decode_Error");
       end;
