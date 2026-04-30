@@ -17,6 +17,10 @@ with Atomic.Unsigned_32;
 with Byte_Counter;        use Byte_Counter;
 with Interfaces;          use Interfaces;
 with System.Machine_Code; use System.Machine_Code;
+with Pico_Jtag_Device;
+with Pico_Jtag;
+with MT; use type MT.Bit;
+
 
 package body AdaBMP_FW is
    -- For testing w/ external button
@@ -75,6 +79,15 @@ package body AdaBMP_FW is
          when Start_UART          =>
             Run_UART;
 
+         when Jtag_Halt           =>
+            Run_Jtag_Halt;
+
+         when Jtag_Resume         =>
+            Run_Jtag_Resume;
+
+         when Jtag_Dm_Status      =>
+            Run_Jtag_Dm_Status;
+
          when Flash_Target        =>
             declare
                Payload : UInt8_Array := Get_Payload (Cmd_Packet);
@@ -108,7 +121,6 @@ package body AdaBMP_FW is
       USB_Tx (Packet'Length + 1) := 0;
       USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Write_Len);
    end Send_Programmer_Info;
-
    procedure Run_Connection_Test is
       Packet        : constant UInt8_Array :=
         Encode (Make_Packet (Ready, (1 .. 0 => 0)));
@@ -476,6 +488,81 @@ package body AdaBMP_FW is
       USB_Tx (Packet'Length + 1) := 0;
       USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Length);
    end Send_Command;
+
+   procedure Run_Jtag_Halt is
+      Dev : Pico_Jtag_Device.JTAG_Device;
+   begin
+      Pico_Jtag_Device.Create (Dev);
+      Pico_Jtag.Init (Dev);
+      Pico_Jtag.Start (Dev);
+
+      begin
+         JTAG.jtag_halt (Dev);
+
+      end;
+
+      Pico_Jtag.Stop (Dev);
+   end Run_Jtag_Halt;
+
+   procedure Run_Jtag_Resume is
+      Dev : Pico_Jtag_Device.JTAG_Device;
+   begin
+      Pico_Jtag_Device.Create (Dev);
+      Pico_Jtag.Init (Dev);
+      Pico_Jtag.Start (Dev);
+
+      begin
+         JTAG.jtag_Resume (Dev);
+
+      end;
+
+      Pico_Jtag.Stop (Dev);
+   end Run_Jtag_Resume;
+
+  procedure Run_Jtag_Dm_Status is
+      Dev    : Pico_Jtag_Device.JTAG_Device;
+      Status : aliased UInt32 := 0;
+
+      Status_Bytes : UInt8_Array (1 .. 4)
+      with Import, Convention => Ada, Address => Status'Address;
+   begin
+      Pico_Jtag_Device.Create (Dev);
+      Pico_Jtag.Init (Dev);
+      Pico_Jtag.Start (Dev);
+
+      begin
+         JTAG.jtag_halt (Dev);
+         JTAG.Read_DMSTATUS_Value
+         (Dev,
+            Interfaces.Unsigned_32 (Status));
+      end;
+
+      if Status /= 0 then
+         declare
+            Packet : constant UInt8_Array :=
+            Encode (Make_Packet (Data_Packet, Status_Bytes));
+            Length : UInt32 := UInt32 (Packet'Length + 1);
+         begin
+            USB_Tx (1 .. Packet'Length) := Packet;
+            USB_Tx (Packet'Length + 1) := 0;
+            USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Length);
+         end;
+      else
+         declare
+            Packet : constant UInt8_Array :=
+            Encode (Make_Packet (JTAG_Error, (1 .. 0 => 0)));
+            Length : UInt32 := UInt32 (Packet'Length + 1);
+         begin
+            USB_Tx (1 .. Packet'Length) := Packet;
+            USB_Tx (Packet'Length + 1) := 0;
+            USB_Serial.Write (RP.Device.UDC, USB_Tx'Address, Length);
+         end;
+      end if;
+
+      Pico_Jtag.Stop (Dev);
+   end Run_Jtag_Dm_Status;
+
+
 
    procedure Run is
    begin

@@ -4,6 +4,13 @@ with System;
 with RP.GPIO;   use RP.GPIO;
 with USB.Lang;
 with RP.Timer;
+with Pico_Jtag_Device;
+with Pico_Jtag;
+with Jtag_Types; use Jtag_Types;
+with Interfaces; use Interfaces;
+with MT; use type MT.Bit;
+
+
 
 package body JTAG is
    procedure Init is
@@ -155,6 +162,30 @@ package body JTAG is
          TMS.Clear;
       end if;
    end Set_TMS;
+
+   
+   procedure Set_TDI (Value : Boolean) is
+   begin
+      if Value then
+         TDI.Set;
+      else
+         TDI.Clear;
+      end if;
+   end Set_TDI;
+
+   procedure Set_TCK (Value : Boolean) is
+   begin
+      if Value then
+         TCK.Set;
+      else
+         TCK.Clear;
+      end if;
+   end Set_TCK;
+
+   function Get_TDO return Boolean is
+   begin
+      return TDO.Get;
+   end Get_TDO;
 
    -- Puts TAP in Test Logic Reset
    procedure TAP_Reset is
@@ -403,5 +434,255 @@ package body JTAG is
       JTAG.SPI_End_Transaction;
       return (Status and 1) = 0; -- Should return false on timeout error
    end SPI_Wait_Write_In_Progress;
+
+      --Debugging functions and procedures
+   
+   function Build_DMI_DR
+   (Req : DMI_Request) return Bit_Array
+   is
+      DR : Bit_Array (0 .. 40) := (others => MT.Zero);
+
+      function To_Op_Bits (Op : DMI_Op) return Interfaces.Unsigned_32 is
+      begin
+         case Op is
+            when DMI_NOP   => return 0;
+            when DMI_Read  => return 1;
+            when DMI_Write => return 2;
+         end case;
+      end To_Op_Bits;
+
+      Op_Bits : constant Interfaces.Unsigned_32 := To_Op_Bits (Req.Op);
+
+   begin
+      ------------------------------------------------------------------
+      -- op bits [1:0]
+      ------------------------------------------------------------------
+      if (Op_Bits and 1) /= 0 then
+         DR (0) := MT.One;
+      end if;
+
+      if (Op_Bits and 2) /= 0 then
+         DR (1) := MT.One;
+      end if;
+
+      ------------------------------------------------------------------
+      -- data bits [33:2]
+      ------------------------------------------------------------------
+      for I in 0 .. 31 loop
+         if (Req.Data and Interfaces.Shift_Left (Interfaces.Unsigned_32 (1), I)) /= 0 then
+            DR (I + 2) := MT.One;
+         end if;
+      end loop;
+
+      ------------------------------------------------------------------
+      -- address bits [40:34]
+      ------------------------------------------------------------------
+      for I in 0 .. 6 loop
+         if (Req.Address and Interfaces.Shift_Left (Interfaces.Unsigned_32 (1), I)) /= 0 then
+            DR (I + 34) := MT.One;
+         end if;
+      end loop;
+
+      return DR;
+   end Build_DMI_DR;
+
+
+
+   -- Use for setting dm to active on target device
+
+   procedure jtag_halt (Dev : in out Pico_Jtag_Device.JTAG_Device) is
+
+      -- DMI IR = 10001
+      IR_In  : Bit_Array (0 .. 4) :=
+      (0 => MT.One,
+         1 => MT.Zero,
+         2 => MT.Zero,
+         3 => MT.Zero,
+         4 => MT.One);
+
+      IR_Out : Bit_Array (0 .. 4);
+
+      DR_In  : Bit_Array (0 .. 40);
+      DR_Out : Bit_Array (0 .. 40);
+
+      DMCONTROL_Addr : constant Interfaces.Unsigned_32 := 16#10#;
+
+      Req : DMI_Request;
+
+   begin
+      Pico_Jtag.Reset (Dev);
+
+      -- Select DMI IR
+      Pico_Jtag.Scan_IR (Dev, IR_In, IR_Out);
+
+      ------------------------------------------------------------------
+      -- 1. Enable debug (dmactive = 1)
+      ------------------------------------------------------------------
+      Req :=
+      (Op      => DMI_Write,
+         Data    => 16#0000_0001#,
+         Address => DMCONTROL_Addr);
+
+      DR_In := Build_DMI_DR (Req);
+      Pico_Jtag.Scan_DR (Dev, DR_In, DR_Out);
+
+      ------------------------------------------------------------------
+      -- 2. Halt core (dmactive + haltreq)
+      ------------------------------------------------------------------
+      Req :=
+      (Op      => DMI_Write,
+         Data    => 16#8000_0001#,
+         Address => DMCONTROL_Addr);
+
+      DR_In := Build_DMI_DR (Req);
+      Pico_Jtag.Scan_DR (Dev, DR_In, DR_Out);
+
+   end jtag_halt;
+
+   procedure jtag_resume (Dev : in out Pico_Jtag_Device.JTAG_Device) is
+
+      -- DMI IR = 10001
+      IR_In  : Bit_Array (0 .. 4) :=
+      (0 => MT.One,
+         1 => MT.Zero,
+         2 => MT.Zero,
+         3 => MT.Zero,
+         4 => MT.One);
+
+      IR_Out : Bit_Array (0 .. 4);
+
+      DR_In  : Bit_Array (0 .. 40);
+      DR_Out : Bit_Array (0 .. 40);
+
+      DMCONTROL_Addr : constant Interfaces.Unsigned_32 := 16#10#;
+
+      Req : DMI_Request;
+
+   begin
+      Pico_Jtag.Reset (Dev);
+
+      -- Select DMI IR
+      Pico_Jtag.Scan_IR (Dev, IR_In, IR_Out);
+
+      ------------------------------------------------------------------
+      -- Resume core (dmactive + resumereq)
+      ------------------------------------------------------------------
+      Req :=
+      (Op      => DMI_Write,
+         Data    => 16#4000_0001#,
+         Address => DMCONTROL_Addr);
+
+      DR_In := Build_DMI_DR (Req);
+      Pico_Jtag.Scan_DR (Dev, DR_In, DR_Out);
+
+   end jtag_resume;
+
+   procedure DMI_Read_Register
+   (Dev      : in out Pico_Jtag_Device.JTAG_Device;
+      Address  : in     Interfaces.Unsigned_32;
+      Data_Out : out    Interfaces.Unsigned_32;
+      Op_Out   : out    Interfaces.Unsigned_32)
+   is
+      -- DMI IR = 10001
+      IR_In  : Bit_Array (0 .. 4) :=
+      (0 => MT.One,
+         1 => MT.Zero,
+         2 => MT.Zero,
+         3 => MT.Zero,
+         4 => MT.One);
+
+      IR_Out : Bit_Array (0 .. 4);
+
+      DR_In  : Bit_Array (0 .. 40);
+      DR_Out : Bit_Array (0 .. 40);
+
+      Read_Req : DMI_Request :=
+      (Op      => DMI_Read,
+         Data    => 0,
+         Address => Address);
+
+      Nop_Req : DMI_Request :=
+      (Op      => DMI_NOP,
+         Data    => 0,
+         Address => 0);
+
+      function Bits_To_U32
+      (Arr   : Bit_Array;
+         First : Natural;
+         Last  : Natural) return Interfaces.Unsigned_32
+      is
+         Result : Interfaces.Unsigned_32 := 0;
+         Shift  : Natural := 0;
+      begin
+         for I in First .. Last loop
+            if Arr (I) = MT.One then
+               Result :=
+               Result or Interfaces.Shift_Left (Interfaces.Unsigned_32 (1), Shift);
+            end if;
+            Shift := Shift + 1;
+         end loop;
+
+         return Result;
+      end Bits_To_U32;
+
+   begin
+      Data_Out := 0;
+      Op_Out   := 0;
+
+      -- Select DMI IR
+      Pico_Jtag.Scan_IR (Dev, IR_In, IR_Out);
+
+      -- First scan: submit read request
+      DR_In := Build_DMI_DR (Read_Req);
+      Pico_Jtag.Scan_DR (Dev, DR_In, DR_Out);
+
+      -- Second scan: NOP to receive prior read result
+      DR_In := Build_DMI_DR (Nop_Req);
+      Pico_Jtag.Scan_DR (Dev, DR_In, DR_Out);
+
+      -- Decode returned response
+      Op_Out   := Bits_To_U32 (DR_Out, 0, 1);
+      Data_Out := Bits_To_U32 (DR_Out, 2, 33);
+   end DMI_Read_Register;
+
+   procedure Read_DMSTATUS
+   (Dev    : in out Pico_Jtag_Device.JTAG_Device;
+      Status : out Interfaces.Unsigned_32;
+      Op     : out Interfaces.Unsigned_32)
+   is
+      DMSTATUS_Addr : constant Interfaces.Unsigned_32 := 16#11#;
+   begin
+      DMI_Read_Register
+      (Dev      => Dev,
+         Address  => DMSTATUS_Addr,
+         Data_Out => Status,
+         Op_Out   => Op);
+   end Read_DMSTATUS;
+
+
+   procedure Read_DMSTATUS_Value
+   (Dev    : in out Pico_Jtag_Device.JTAG_Device;
+      Status : out Interfaces.Unsigned_32)
+   is
+      Op : Interfaces.Unsigned_32;
+   begin
+      Read_DMSTATUS (Dev, Status, Op);
+   end Read_DMSTATUS_Value;
+
+   
+   -- Use fot halting the cpu of the target
+   --procedure halt_cpu is
+   --begin 
+
+   --end halt_cpu;
+   
+   
+   
+   -- Use for resuming after a halt
+   --procedure resume_halt is
+   --begin
+
+   --end resume_halt;
+
 
 end JTAG;

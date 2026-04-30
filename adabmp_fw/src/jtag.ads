@@ -8,6 +8,8 @@ with System;
 with Interfaces;        use Interfaces;
 with RP2040_SVD.PIO;
 with RP.Timer;          use RP.Timer;
+with Pico_Jtag_Device;
+with Jtag_types; use Jtag_Types;
 
 package JTAG is
 
@@ -24,6 +26,10 @@ package JTAG is
 
    procedure Strobe_Blocking (Count : UInt32);
    procedure Set_TMS (Value : Boolean);
+   procedure Set_TDI (Value : Boolean);
+   procedure Set_TCK (Value : Boolean);
+   function Get_TDO return Boolean;
+
    procedure TAP_Reset;
 
    procedure Set_TX_Shift_Direction (Dir : Shift_Direction);
@@ -60,6 +66,53 @@ package JTAG is
    procedure SPI_Read_Last_Blocking (Data : in out UInt32; Length : UInt32);
    -- Use for single read up to full word
    procedure SPI_Read_Once_Blocking (Data : in out UInt32; Length : UInt32);
+   -- Use for setting dm to active on target device
+
+
+
+   --for debugging purposes
+
+   type DMI_Op is
+     (DMI_NOP,
+      DMI_Read,
+      DMI_Write);
+
+
+   type DMI_Request is record
+      Op      : DMI_Op;
+      Data    : Interfaces.Unsigned_32;
+      Address : Interfaces.Unsigned_32;
+   end record;
+
+   type DMI_Response is record
+      Op      : Interfaces.Unsigned_32;
+      Data    : Interfaces.Unsigned_32;
+      Address : Interfaces.Unsigned_32;
+   end record;
+
+   function Build_DMI_DR
+     (Req : DMI_Request) 
+     return Bit_Array;
+
+
+   procedure jtag_halt (Dev : in out Pico_Jtag_Device.JTAG_Device);
+   procedure jtag_resume (Dev : in out Pico_Jtag_Device.JTAG_Device);
+   
+   procedure DMI_Read_Register
+      (Dev      : in out Pico_Jtag_Device.JTAG_Device;
+      Address  : in     Interfaces.Unsigned_32;
+      Data_Out : out    Interfaces.Unsigned_32;
+      Op_Out   : out    Interfaces.Unsigned_32);
+
+   procedure Read_DMSTATUS
+      (Dev    : in out Pico_Jtag_Device.JTAG_Device;
+      Status : out Interfaces.Unsigned_32;
+      Op     : out Interfaces.Unsigned_32);
+
+   procedure Read_DMSTATUS_Value
+      (Dev    : in out Pico_Jtag_Device.JTAG_Device;
+      Status : out Interfaces.Unsigned_32);
+
    function SPI_Wait_Write_In_Progress return Boolean;
 private
    Program_Offset : constant PIO_Address := 0;
@@ -87,4 +140,6 @@ private
 
    PIO0_Reg : RP2040_SVD.PIO.PIO_Peripheral renames RP2040_SVD.PIO.PIO0_Periph;
    procedure Init_Pins;
+
+
 end JTAG;
