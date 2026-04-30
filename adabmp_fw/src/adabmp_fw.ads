@@ -57,4 +57,8 @@ private
    procedure Send_Command (Command : Command_Id);
    procedure Handle_Command (Cmd_Packet : HAL.UInt8_Array);
    procedure Run_UART;
+
+   procedure Run_Jtag_Halt;
+   procedure Run_Jtag_Resume;
+   procedure Run_Jtag_Dm_Status;
 end AdaBMP_FW;

@@ -20,4 +20,9 @@ package Commands is
    Block32_Erase_Done        : constant Command_Id := 17;
    Sector_Erase_Done         : constant Command_Id := 18;
    Flash_Erase_Complete      : constant Command_Id := 19;
+
+   Jtag_Halt                 : constant Command_Id := 20;
+   Jtag_Resume               : constant Command_Id := 21;
+   Jtag_Dm_Status            : constant Command_Id := 22;
+
 end Commands;

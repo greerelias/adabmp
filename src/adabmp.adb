@@ -11,6 +11,7 @@ with Connection_Tester;
 with Flash_Target;
 with UART;
 with Ada.Exceptions;   use Ada.Exceptions;
+with Jtag_Test;
 
 procedure Adabmp is
    use Ada.Text_IO;
@@ -256,6 +257,81 @@ procedure Adabmp is
          end;
    end Run_Flash_Firmware;
 
+   procedure Run_Jtag_Halt is
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean;
+   begin
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
+
+      Jtag_Test.Halt_CPU(Port);
+
+      Port.Close;
+   exception
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
+   end Run_Jtag_Halt;
+
+   procedure Run_Jtag_Resume is
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean;
+   begin
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
+
+      Jtag_Test.Resume_CPU (Port);
+
+      Port.Close;
+   exception
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
+   end Run_Jtag_Resume;
+
+   procedure Run_Jtag_Dm_Status is
+      Port    : Serial_Interface.Impl.Com_Port;
+      Success : Boolean;
+   begin
+      Open_Device_Port (Port, Success);
+      if not Success then
+         return;
+      end if;
+
+      Jtag_Test.Get_Target_DM_Status (Port);
+
+      Port.Close;
+   exception
+      when E : others =>
+         Put_Line ("Exception: " & Exception_Name (E));
+         Put_Line ("Message:   " & Exception_Message (E));
+         Put_Line ("Info:      " & Exception_Information (E));
+         begin
+            Port.Close;
+         exception
+            when others =>
+               null;
+         end;
+   end Run_Jtag_Dm_Status;
+
 begin
    if Argument_Count = 0 then
       Put_Line ("--- Ada Baremetal Programmer Commands ---");
@@ -271,6 +347,12 @@ begin
         ("  -b, --flash-bitstream <path>           : Flash bitstream to target");
       Put_Line
         ("  -f, --flash-firmware <path> [address]  : Flash firmware to target (address defaults to 0x300000)");
+      Put_Line
+        ("  -jh, --jtag-halt                       : Debug test");
+      Put_Line
+        ("  -jr, --jtag-resume                     : Debug test");
+      Put_Line
+        ("  -jds, --jtag-get-dm-status             : Debug test");
       return;
    end if;
 
@@ -307,6 +389,12 @@ begin
          Put_Line ("Error: Missing firmware file path.");
          return;
       end if;
+   elsif Argument (1) = "-jh" or Argument (1) = "--jtag-halt" then
+      Run_Jtag_Halt;
+   elsif Argument (1) = "-jr" or Argument (1) = "--jtag-resume" then
+      Run_Jtag_resume;
+   elsif Argument (1) = "-jds" or Argument (1) = "--jtag-get-dm-status" then
+      Run_Jtag_Dm_Status;
    else
       Put_Line ("Unknown argument: " & Argument (1));
    end if;
