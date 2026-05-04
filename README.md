@@ -203,7 +203,10 @@ Alire is the Ada package manager required to build this project.
 
    Press any key when prompted to begin the transfer. When complete, unplug and replug the Pico to restart it.
 
-5. **Wire the Pico to your target FPGA** using flying leads. See the [Hardware Setup](#hardware-setup) section below for pinout details.
+   <img width="420" height="71" alt="picotool_flash" src="https://github.com/user-attachments/assets/d1b8b1fa-a222-4f13-bd1e-7e9ffa29b3d7" />
+
+
+6. **Wire the Pico to your target FPGA** using flying leads. See the [Hardware Setup](#hardware-setup) section below for pinout details.
 
 ---
 
@@ -214,6 +217,10 @@ Navigate to the `/bin/` directory in the project root and run:
 ```bash
 ./adabmp
 ```
+
+&nbsp;
+<img width="468" height="78" alt="cli_args" src="https://github.com/user-attachments/assets/bbc04e3a-d94a-429f-ac79-0b21248f6096" />
+&nbsp;
 
 This prints all available commands and arguments. The general usage pattern is:
 
@@ -315,3 +322,17 @@ Connect the Raspberry Pi Pico to the target FPGA using flying leads with Dupont 
 - **Basys-3 JTAG & UART Connections** — see Figures 37–39 in the project documentation
 
 > **Tip:** If using the Digilent Basys-3, note that JTAG header pins are not pre-installed. You will need to solder them before making connections.
+
+### Pico & Basys-3 Diagram
+<img width="624" height="260" alt="pico_basys3" src="https://github.com/user-attachments/assets/31795bb7-81fe-48f7-80c6-55b63ab6aaf7" />
+
+### Pico Pinout Diagram
+<img width="1320" height="1093" alt="pico_pinout" src="https://github.com/user-attachments/assets/70b7006c-d9a6-451b-976b-11b15838afe5" />
+
+### Basys-3 JTAG Pins Diagram
+<img width="702" height="711" alt="jtag_connections" src="https://github.com/user-attachments/assets/8f2fd0d9-6f54-4786-9f6d-622e897ebd29" />
+
+### Basys-3 UART Connections Diagram
+<img width="928" height="433" alt="uart_connections" src="https://github.com/user-attachments/assets/6f823d1b-535c-4959-88f5-22a5ac44bfa5" />
+
+
