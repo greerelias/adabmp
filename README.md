@@ -332,7 +332,7 @@ Connect the Raspberry Pi Pico to the target FPGA using flying leads with Dupont 
 ### Basys-3 JTAG Pins Diagram
 <img width="702" height="711" alt="jtag_connections" src="https://github.com/user-attachments/assets/8f2fd0d9-6f54-4786-9f6d-622e897ebd29" />
 
-### Basys-3 UART Connections Diagram
+### Basys-3 UART Connections Diagram - PMOD Connecter JA
 <img width="928" height="433" alt="uart_connections" src="https://github.com/user-attachments/assets/6f823d1b-535c-4959-88f5-22a5ac44bfa5" />
 
 
